@@ -47,7 +47,7 @@ func main() {
 		}, ","),
 	}))
 
-	// routes.Setup(app)
+	routes.Setup(app)
 
 	log.Fatal(app.Listen(getPort()))
 
