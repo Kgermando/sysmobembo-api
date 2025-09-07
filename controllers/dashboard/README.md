@@ -64,7 +64,8 @@ Analyse géographique avancée avec clustering et proximité.
 - `min_migrants` : Nombre minimum de migrants (défaut: 3)
 
 ### 5. 🌍 **Système d'Information Géographique** (`gis_system.controller.go`)
-SIG complet avec couches cartographiques et export de données.
+SIG complet avec c
+uches cartographiques et export de données.
 
 **Endpoints:**
 - `GET /api/dashboard/gis/config` - Configuration de la carte
