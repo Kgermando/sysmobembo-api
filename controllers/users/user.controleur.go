@@ -10,7 +10,6 @@ import (
 )
 
 // Paginate
-
 func GetPaginatedUsers(c *fiber.Ctx) error {
 	db := database.DB
 
@@ -33,11 +32,13 @@ func GetPaginatedUsers(c *fiber.Ctx) error {
 
 	// Count total records matching the search query
 	db.Model(&models.User{}).
-		Where("fullname ILIKE ? OR role ILIKE ?", "%"+search+"%", "%"+search+"%").
+		Where("nom ILIKE ? OR postnom ILIKE ? OR prenom ILIKE ? OR role ILIKE ? OR matricule ILIKE ?",
+			"%"+search+"%", "%"+search+"%", "%"+search+"%", "%"+search+"%", "%"+search+"%").
 		Count(&totalRecords)
 
 	err = db.
-		Where("fullname ILIKE ? OR role ILIKE ?", "%"+search+"%", "%"+search+"%").
+		Where("nom ILIKE ? OR postnom ILIKE ? OR prenom ILIKE ? OR role ILIKE ? OR matricule ILIKE ?",
+			"%"+search+"%", "%"+search+"%", "%"+search+"%", "%"+search+"%", "%"+search+"%").
 		Offset(offset).
 		Limit(limit).
 		Order("users.updated_at DESC").
@@ -102,11 +103,11 @@ func GetUser(c *fiber.Ctx) error {
 	db := database.DB
 	var user models.User
 	db.Where("uuid = ?", uuid).First(&user)
-	if user.Fullname == "" {
+	if user.Nom == "" {
 		return c.Status(404).JSON(
 			fiber.Map{
 				"status":  "error",
-				"message": "No User name found",
+				"message": "No User found",
 				"data":    nil,
 			},
 		)
@@ -122,54 +123,53 @@ func GetUser(c *fiber.Ctx) error {
 
 // Create data
 func CreateUser(c *fiber.Ctx) error {
-	p := &models.User{}
+	user := &models.User{}
 
-	if err := c.BodyParser(&p); err != nil {
-		return err
+	if err := c.BodyParser(user); err != nil {
+		return c.Status(400).JSON(fiber.Map{
+			"status":  "error",
+			"message": "Invalid request format",
+			"error":   err.Error(),
+		})
 	}
 
-	if p.Fullname == "" {
-		return c.Status(404).JSON(
+	if user.Nom == "" || user.PostNom == "" || user.Prenom == "" {
+		return c.Status(400).JSON(
 			fiber.Map{
 				"status":  "error",
-				"message": "Form not complete",
+				"message": "Form not complete - nom, postnom and prenom are required",
 				"data":    nil,
 			},
 		)
 	}
 
-	if p.Password != p.PasswordConfirm {
-		c.Status(400)
-		return c.JSON(fiber.Map{
+	if user.Password != user.PasswordConfirm {
+		return c.Status(400).JSON(fiber.Map{
+			"status":  "error",
 			"message": "passwords do not match",
 		})
 	}
 
-	user := &models.User{
-		Fullname:   p.Fullname,
-		Email:      p.Email,
-		Telephone:  p.Telephone,
-		Role:       p.Role,
-		Permission: p.Permission,
-		Status:     p.Status,
-		Signature:  p.Signature,
-	}
-
-	user.SetPassword(p.Password)
+	user.SetPassword(user.Password)
 
 	if err := utils.ValidateStruct(*user); err != nil {
-		c.Status(400)
-		return c.JSON(err)
+		return c.Status(400).JSON(err)
 	}
 
 	user.UUID = utils.GenerateUUID()
 
-	database.DB.Create(user)
+	if err := database.DB.Create(user).Error; err != nil {
+		return c.Status(500).JSON(fiber.Map{
+			"status":  "error",
+			"message": "Failed to create user",
+			"error":   err.Error(),
+		})
+	}
 
 	return c.JSON(
 		fiber.Map{
 			"status":  "success",
-			"message": "User Created success",
+			"message": "User created successfully",
 			"data":    user,
 		},
 	)
@@ -180,45 +180,93 @@ func UpdateUser(c *fiber.Ctx) error {
 	uuid := c.Params("uuid")
 	db := database.DB
 
-	type UpdateDataInput struct {
-		Fullname   string `gorm:"not null" json:"fullname"`
-		Email      string `gorm:"unique; not null" json:"email"`
-		Telephone  string `gorm:"unique; not null" json:"telephone"`
-		Role       string `json:"role"`
-		Permission string `json:"permission"`
-		Status     bool   `json:"status"`
-		Signature  string `json:"signature"`
-	}
-
-	var updateData UpdateDataInput
+	var updateData models.User
 
 	if err := c.BodyParser(&updateData); err != nil {
-		return c.Status(500).JSON(
+		return c.Status(400).JSON(
 			fiber.Map{
 				"status":  "error",
 				"message": "Review your input",
-				"data":    nil,
+				"error":   err.Error(),
 			},
 		)
 	}
 
 	user := new(models.User)
 
-	db.Where("uuid = ?", uuid).First(&user)
-	user.Fullname = updateData.Fullname
+	if err := db.Where("uuid = ?", uuid).First(&user).Error; err != nil {
+		return c.Status(404).JSON(
+			fiber.Map{
+				"status":  "error",
+				"message": "User not found",
+				"data":    nil,
+			},
+		)
+	}
+
+	// Mise à jour des champs
+	user.Nom = updateData.Nom
+	user.PostNom = updateData.PostNom
+	user.Prenom = updateData.Prenom
+	user.Sexe = updateData.Sexe
+	user.DateNaissance = updateData.DateNaissance
+	user.LieuNaissance = updateData.LieuNaissance
+	user.EtatCivil = updateData.EtatCivil
+	user.NombreEnfants = updateData.NombreEnfants
+	user.Nationalite = updateData.Nationalite
+	user.NumeroCNI = updateData.NumeroCNI
+	user.DateEmissionCNI = updateData.DateEmissionCNI
+	user.DateExpirationCNI = updateData.DateExpirationCNI
+	user.LieuEmissionCNI = updateData.LieuEmissionCNI
 	user.Email = updateData.Email
 	user.Telephone = updateData.Telephone
+	user.TelephoneUrgence = updateData.TelephoneUrgence
+	user.Province = updateData.Province
+	user.Ville = updateData.Ville
+	user.Commune = updateData.Commune
+	user.Quartier = updateData.Quartier
+	user.Avenue = updateData.Avenue
+	user.Numero = updateData.Numero
+	user.Matricule = updateData.Matricule
+	user.Grade = updateData.Grade
+	user.Fonction = updateData.Fonction
+	user.Service = updateData.Service
+	user.Direction = updateData.Direction
+	user.Ministere = updateData.Ministere
+	user.DateRecrutement = updateData.DateRecrutement
+	user.DatePriseService = updateData.DatePriseService
+	user.TypeAgent = updateData.TypeAgent
+	user.Statut = updateData.Statut
+	user.NiveauEtude = updateData.NiveauEtude
+	user.DiplomeBase = updateData.DiplomeBase
+	user.UniversiteEcole = updateData.UniversiteEcole
+	user.AnneeObtention = updateData.AnneeObtention
+	user.Specialisation = updateData.Specialisation
+	user.NumeroBancaire = updateData.NumeroBancaire
+	user.Banque = updateData.Banque
+	user.NumeroCNSS = updateData.NumeroCNSS
+	user.NumeroONEM = updateData.NumeroONEM
+	user.PhotoProfil = updateData.PhotoProfil
+	user.CVDocument = updateData.CVDocument
 	user.Role = updateData.Role
 	user.Permission = updateData.Permission
 	user.Status = updateData.Status
 	user.Signature = updateData.Signature
 
-	db.Save(&user)
+	if err := db.Save(&user).Error; err != nil {
+		return c.Status(500).JSON(
+			fiber.Map{
+				"status":  "error",
+				"message": "Failed to update user",
+				"error":   err.Error(),
+			},
+		)
+	}
 
 	return c.JSON(
 		fiber.Map{
 			"status":  "success",
-			"message": "User updated success",
+			"message": "User updated successfully",
 			"data":    user,
 		},
 	)
@@ -232,11 +280,11 @@ func DeleteUser(c *fiber.Ctx) error {
 
 	var User models.User
 	db.Where("uuid = ?", uuid).First(&User)
-	if User.Fullname == "" {
+	if User.Nom == "" {
 		return c.Status(404).JSON(
 			fiber.Map{
 				"status":  "error",
-				"message": "No User name found",
+				"message": "No User found",
 				"data":    nil,
 			},
 		)

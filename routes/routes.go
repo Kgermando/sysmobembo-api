@@ -3,6 +3,7 @@ package routes
 import (
 	"github.com/gofiber/fiber/v2"
 	"github.com/kgermando/sysmobembo-api/controllers/auth"
+	"github.com/kgermando/sysmobembo-api/controllers/qrcode"
 	"github.com/kgermando/sysmobembo-api/controllers/users"
 
 	"github.com/gofiber/fiber/v2/middleware/logger"
@@ -35,5 +36,13 @@ func Setup(app *fiber.App) {
 	u.Post("/create", users.CreateUser)
 	u.Put("/update/:uuid", users.UpdateUser)
 	u.Delete("/delete/:uuid", users.DeleteUser)
+
+	// QR Code controller
+	qr := api.Group("/qrcode")
+	qr.Post("/generate/:uuid", qrcode.GenerateQRCode) // Générer un QR code pour un agent
+	qr.Post("/verify", qrcode.VerifyQRCode)           // Vérifier un QR code
+	qr.Get("/agent/:uuid", qrcode.GetAgentByQR)       // Obtenir les infos d'un agent via QR
+	qr.Put("/refresh/:uuid", qrcode.RefreshQRCode)    // Renouveler un QR code
+	qr.Get("/image/:filename", qrcode.ServeQRCode)    // Servir les images QR code
 
 }

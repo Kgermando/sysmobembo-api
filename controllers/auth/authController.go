@@ -34,7 +34,9 @@ func Register(c *fiber.Ctx) error {
 
 	u := &models.User{
 		UUID:       uuid.New().String(),
-		Fullname:   nu.Fullname,
+		Nom:        nu.Nom,
+		PostNom:    nu.PostNom,
+		Prenom:     nu.Prenom,
 		Email:      nu.Email,
 		Telephone:  nu.Telephone,
 		Role:       nu.Role,
@@ -129,7 +131,10 @@ func AuthUser(c *fiber.Ctx) error {
 		First(&u)
 	r := &models.UserResponse{
 		UUID:       u.UUID,
-		Fullname:   u.Fullname,
+		Nom:        u.Nom,
+		PostNom:    u.PostNom,
+		Prenom:     u.Prenom,
+		Fullname:   u.GetFullName(),
 		Email:      u.Email,
 		Telephone:  u.Telephone,
 		Role:       u.Role,
@@ -161,7 +166,9 @@ func Logout(c *fiber.Ctx) error {
 // User bioprofile
 func UpdateInfo(c *fiber.Ctx) error {
 	type UpdateDataInput struct {
-		Fullname  string `json:"fullname"`
+		Nom       string `json:"nom"`
+		PostNom   string `json:"postnom"`
+		Prenom    string `json:"prenom"`
 		Email     string `json:"email"`
 		Telephone string `json:"telephone"`
 		Signature string `json:"signature"`
@@ -194,7 +201,9 @@ func UpdateInfo(c *fiber.Ctx) error {
 		})
 	}
 
-	user.Fullname = updateData.Fullname
+	user.Nom = updateData.Nom
+	user.PostNom = updateData.PostNom
+	user.Prenom = updateData.Prenom
 	user.Email = updateData.Email
 	user.Telephone = updateData.Telephone
 	user.Signature = updateData.Signature
