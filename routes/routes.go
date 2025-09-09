@@ -25,6 +25,7 @@ func Setup(app *fiber.App) {
 	a.Post("/login", auth.Login)
 	a.Post("/forgot-password", auth.ForgotPassword)
 	a.Post("/reset/:token", auth.ResetPassword)
+	a.Post("/create-admin", auth.CreateAdminHandler) // Endpoint pour créer un admin
 
 	// app.Use(middlewares.IsAuthenticated)
 
@@ -104,13 +105,10 @@ func Setup(app *fiber.App) {
 	migrant.Get("/paginate", migrants.GetPaginatedMigrants)
 	migrant.Get("/all", migrants.GetAllMigrants)
 	migrant.Get("/get/:uuid", migrants.GetMigrant)
-	migrant.Get("/numero/:numero", migrants.GetMigrantByNumero)
 	migrant.Post("/create", migrants.CreateMigrant)
 	migrant.Put("/update/:uuid", migrants.UpdateMigrant)
 	migrant.Delete("/delete/:uuid", migrants.DeleteMigrant)
 	migrant.Get("/stats", migrants.GetMigrantsStats)
-	migrant.Get("/nationality/:nationality", migrants.GetMigrantsByNationality)
-	migrant.Get("/search", migrants.SearchMigrants)
 
 	// Motif Deplacement controller
 	motif := api.Group("/motif-deplacements")

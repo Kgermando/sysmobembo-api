@@ -300,3 +300,5 @@ func DeleteUser(c *fiber.Ctx) error {
 		},
 	)
 }
+
+

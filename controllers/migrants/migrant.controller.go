@@ -28,7 +28,7 @@ func generateNumeroIdentifiant() string {
 	return fmt.Sprintf("MIG-%d-%06d", year, sequence)
 }
 
-// Paginate - Récupérer les migrants avec pagination
+// Paginate - Récupérer les migrants avec pagination et filtres
 func GetPaginatedMigrants(c *fiber.Ctx) error {
 	db := database.DB
 
@@ -43,21 +43,94 @@ func GetPaginatedMigrants(c *fiber.Ctx) error {
 	}
 	offset := (page - 1) * limit
 
-	// Parse search query
+	// Parse search and filter parameters
 	search := c.Query("search", "")
+	statutMigratoire := c.Query("statut_migratoire", "")
+	nationalite := c.Query("nationalite", "")
+	paysOrigine := c.Query("pays_origine", "")
+	genre := c.Query("genre", "")
+	actif := c.Query("actif", "")
+	typeDocument := c.Query("type_document", "")
+
+	// Date filters
+	dateCreationDebut := c.Query("date_creation_debut", "")
+	dateCreationFin := c.Query("date_creation_fin", "")
+	dateNaissanceDebut := c.Query("date_naissance_debut", "")
+	dateNaissanceFin := c.Query("date_naissance_fin", "")
 
 	var migrants []models.Migrant
 	var totalRecords int64
 
-	// Count total records matching the search query
-	db.Model(&models.Migrant{}).
-		Where("nom ILIKE ? OR prenom ILIKE ? OR numero_identifiant ILIKE ? OR nationalite ILIKE ? OR numero_document ILIKE ?",
-			"%"+search+"%", "%"+search+"%", "%"+search+"%", "%"+search+"%", "%"+search+"%").
-		Count(&totalRecords)
+	// Build query with filters
+	query := db.Model(&models.Migrant{})
 
-	err = db.
-		Where("nom ILIKE ? OR prenom ILIKE ? OR numero_identifiant ILIKE ? OR nationalite ILIKE ? OR numero_document ILIKE ?",
-			"%"+search+"%", "%"+search+"%", "%"+search+"%", "%"+search+"%", "%"+search+"%").
+	// Search filter
+	if search != "" {
+		query = query.Where("nom ILIKE ? OR prenom ILIKE ? OR numero_identifiant ILIKE ? OR nationalite ILIKE ? OR numero_document ILIKE ?",
+			"%"+search+"%", "%"+search+"%", "%"+search+"%", "%"+search+"%", "%"+search+"%")
+	}
+
+	// Status filters
+	if statutMigratoire != "" {
+		query = query.Where("statut_migratoire = ?", statutMigratoire)
+	}
+
+	if nationalite != "" {
+		query = query.Where("nationalite ILIKE ?", "%"+nationalite+"%")
+	}
+
+	if paysOrigine != "" {
+		query = query.Where("pays_origine ILIKE ?", "%"+paysOrigine+"%")
+	}
+
+	if genre != "" {
+		query = query.Where("genre = ?", genre)
+	}
+
+	if actif != "" {
+		if actif == "true" {
+			query = query.Where("actif = ?", true)
+		} else if actif == "false" {
+			query = query.Where("actif = ?", false)
+		}
+	}
+
+	if typeDocument != "" {
+		query = query.Where("type_document = ?", typeDocument)
+	}
+
+	// Date filters
+	if dateCreationDebut != "" {
+		if parsedDate, err := time.Parse("2006-01-02", dateCreationDebut); err == nil {
+			query = query.Where("created_at >= ?", parsedDate)
+		}
+	}
+
+	if dateCreationFin != "" {
+		if parsedDate, err := time.Parse("2006-01-02", dateCreationFin); err == nil {
+			// Ajouter 23:59:59 pour inclure toute la journée
+			parsedDate = parsedDate.Add(23*time.Hour + 59*time.Minute + 59*time.Second)
+			query = query.Where("created_at <= ?", parsedDate)
+		}
+	}
+
+	if dateNaissanceDebut != "" {
+		if parsedDate, err := time.Parse("2006-01-02", dateNaissanceDebut); err == nil {
+			query = query.Where("date_naissance >= ?", parsedDate)
+		}
+	}
+
+	if dateNaissanceFin != "" {
+		if parsedDate, err := time.Parse("2006-01-02", dateNaissanceFin); err == nil {
+			query = query.Where("date_naissance <= ?", parsedDate)
+		}
+	}
+
+	// Count total records with filters applied
+	query.Count(&totalRecords)
+
+	// Execute query with pagination
+	err = query.
 		Preload("MotifDeplacements").
 		Preload("Alertes").
 		Preload("Biometries").
@@ -86,12 +159,28 @@ func GetPaginatedMigrants(c *fiber.Ctx) error {
 		"page_size":     limit,
 	}
 
+	// Prepare applied filters for response
+	appliedFilters := map[string]interface{}{
+		"search":               search,
+		"statut_migratoire":    statutMigratoire,
+		"nationalite":          nationalite,
+		"pays_origine":         paysOrigine,
+		"genre":                genre,
+		"actif":                actif,
+		"type_document":        typeDocument,
+		"date_creation_debut":  dateCreationDebut,
+		"date_creation_fin":    dateCreationFin,
+		"date_naissance_debut": dateNaissanceDebut,
+		"date_naissance_fin":   dateNaissanceFin,
+	}
+
 	// Return response
 	return c.JSON(fiber.Map{
-		"status":     "success",
-		"message":    "Migrants retrieved successfully",
-		"data":       migrants,
-		"pagination": pagination,
+		"status":          "success",
+		"message":         "Migrants retrieved successfully",
+		"data":            migrants,
+		"pagination":      pagination,
+		"applied_filters": appliedFilters,
 	})
 }
 
@@ -138,34 +227,6 @@ func GetMigrant(c *fiber.Ctx) error {
 		return c.Status(404).JSON(fiber.Map{
 			"status":  "error",
 			"message": "Migrant not found",
-			"data":    nil,
-		})
-	}
-
-	return c.JSON(fiber.Map{
-		"status":  "success",
-		"message": "Migrant found",
-		"data":    migrant,
-	})
-}
-
-// Get migrant by NumeroIdentifiant
-func GetMigrantByNumero(c *fiber.Ctx) error {
-	numeroIdentifiant := c.Params("numero")
-	db := database.DB
-	var migrant models.Migrant
-
-	err := db.Where("numero_identifiant = ?", numeroIdentifiant).
-		Preload("MotifDeplacements").
-		Preload("Alertes").
-		Preload("Biometries").
-		Preload("Geolocalisations").
-		First(&migrant).Error
-
-	if err != nil {
-		return c.Status(404).JSON(fiber.Map{
-			"status":  "error",
-			"message": "Migrant not found with this numero",
 			"data":    nil,
 		})
 	}
@@ -380,84 +441,5 @@ func GetMigrantsStats(c *fiber.Ctx) error {
 		"status":  "success",
 		"message": "Migrants statistics",
 		"data":    stats,
-	})
-}
-
-// Get migrants by nationality
-func GetMigrantsByNationality(c *fiber.Ctx) error {
-	db := database.DB
-
-	var results []map[string]interface{}
-
-	err := db.Model(&models.Migrant{}).
-		Select("nationalite, COUNT(*) as count").
-		Group("nationalite").
-		Order("count DESC").
-		Scan(&results).Error
-
-	if err != nil {
-		return c.Status(500).JSON(fiber.Map{
-			"status":  "error",
-			"message": "Failed to fetch nationality statistics",
-			"error":   err.Error(),
-		})
-	}
-
-	return c.JSON(fiber.Map{
-		"status":  "success",
-		"message": "Migrants by nationality",
-		"data":    results,
-	})
-}
-
-// Search migrants with advanced filters
-func SearchMigrants(c *fiber.Ctx) error {
-	db := database.DB
-
-	// Parse query parameters
-	nationalite := c.Query("nationalite")
-	statut := c.Query("statut")
-	sexe := c.Query("sexe")
-	dateFrom := c.Query("date_from")
-	dateTo := c.Query("date_to")
-
-	var migrants []models.Migrant
-	query := db.Model(&models.Migrant{})
-
-	// Apply filters
-	if nationalite != "" {
-		query = query.Where("nationalite = ?", nationalite)
-	}
-	if statut != "" {
-		query = query.Where("statut_migratoire = ?", statut)
-	}
-	if sexe != "" {
-		query = query.Where("sexe = ?", sexe)
-	}
-	if dateFrom != "" {
-		query = query.Where("created_at >= ?", dateFrom)
-	}
-	if dateTo != "" {
-		query = query.Where("created_at <= ?", dateTo)
-	}
-
-	err := query.Preload("MotifDeplacements").
-		Preload("Alertes").
-		Preload("Biometries").
-		Preload("Geolocalisations").
-		Find(&migrants).Error
-
-	if err != nil {
-		return c.Status(500).JSON(fiber.Map{
-			"status":  "error",
-			"message": "Failed to search migrants",
-			"error":   err.Error(),
-		})
-	}
-
-	return c.JSON(fiber.Map{
-		"status":  "success",
-		"message": "Search results",
-		"data":    migrants,
 	})
 }
