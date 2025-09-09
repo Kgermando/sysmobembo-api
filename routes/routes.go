@@ -100,6 +100,7 @@ func Setup(app *fiber.App) {
 	geo.Get("/hotspots", geolocation.GetGeolocationHotspots)
 	geo.Get("/search", geolocation.SearchGeolocalisations)
 
+	
 	// Migrants controller
 	migrant := api.Group("/migrants")
 	migrant.Get("/paginate", migrants.GetPaginatedMigrants)
