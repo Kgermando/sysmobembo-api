@@ -142,14 +142,54 @@ func GetAlert(c *fiber.Ctx) error {
 	})
 }
 
-// Get alerts by migrant
+// Get alerts by migrant with pagination
 func GetAlertsByMigrant(c *fiber.Ctx) error {
 	migrantUUID := c.Params("migrant_uuid")
 	db := database.DB
-	var alerts []models.Alert
 
-	err := db.Where("migrant_uuid = ?", migrantUUID).
-		Preload("Migrant").
+	// Paramètres de pagination
+	page, err := strconv.Atoi(c.Query("page", "1"))
+	if err != nil || page <= 0 {
+		page = 1
+	}
+	limit, err := strconv.Atoi(c.Query("limit", "15"))
+	if err != nil || limit <= 0 {
+		limit = 15
+	}
+	offset := (page - 1) * limit
+
+	// Paramètres de filtrage
+	search := c.Query("search", "")
+	statut := c.Query("statut", "")
+	gravite := c.Query("gravite", "")
+
+	var alerts []models.Alert
+	var totalRecords int64
+
+	query := db.Model(&models.Alert{}).Where("migrant_uuid = ?", migrantUUID).Preload("Migrant")
+
+	// Filtrer par statut
+	if statut != "" {
+		query = query.Where("statut = ?", statut)
+	}
+
+	// Filtrer par gravité
+	if gravite != "" {
+		query = query.Where("niveau_gravite = ?", gravite)
+	}
+
+	// Recherche textuelle
+	if search != "" {
+		query = query.Where("titre ILIKE ? OR description ILIKE ? OR type_alerte ILIKE ?",
+			"%"+search+"%", "%"+search+"%", "%"+search+"%")
+	}
+
+	// Count total
+	query.Count(&totalRecords)
+
+	// Get paginated results
+	err = query.Offset(offset).
+		Limit(limit).
 		Order("niveau_gravite DESC, created_at DESC").
 		Find(&alerts).Error
 
@@ -161,60 +201,20 @@ func GetAlertsByMigrant(c *fiber.Ctx) error {
 		})
 	}
 
-	return c.JSON(fiber.Map{
-		"status":  "success",
-		"message": "Alerts for migrant",
-		"data":    alerts,
-	})
-}
+	totalPages := int((totalRecords + int64(limit) - 1) / int64(limit))
 
-// Get active alerts (not resolved/expired)
-func GetActiveAlerts(c *fiber.Ctx) error {
-	db := database.DB
-	var alerts []models.Alert
-
-	err := db.Where("statut IN (?)", []string{"active"}).
-		Preload("Migrant").
-		Order("niveau_gravite DESC, created_at DESC").
-		Find(&alerts).Error
-
-	if err != nil {
-		return c.Status(500).JSON(fiber.Map{
-			"status":  "error",
-			"message": "Failed to fetch active alerts",
-			"error":   err.Error(),
-		})
+	pagination := map[string]interface{}{
+		"total_records": totalRecords,
+		"total_pages":   totalPages,
+		"current_page":  page,
+		"page_size":     limit,
 	}
 
 	return c.JSON(fiber.Map{
-		"status":  "success",
-		"message": "Active alerts",
-		"data":    alerts,
-	})
-}
-
-// Get critical alerts
-func GetCriticalAlerts(c *fiber.Ctx) error {
-	db := database.DB
-	var alerts []models.Alert
-
-	err := db.Where("niveau_gravite = ? AND statut = ?", "critical", "active").
-		Preload("Migrant").
-		Order("created_at DESC").
-		Find(&alerts).Error
-
-	if err != nil {
-		return c.Status(500).JSON(fiber.Map{
-			"status":  "error",
-			"message": "Failed to fetch critical alerts",
-			"error":   err.Error(),
-		})
-	}
-
-	return c.JSON(fiber.Map{
-		"status":  "success",
-		"message": "Critical alerts",
-		"data":    alerts,
+		"status":     "success",
+		"message":    "Alerts for migrant retrieved successfully",
+		"data":       alerts,
+		"pagination": pagination,
 	})
 }
 
@@ -456,107 +456,5 @@ func GetAlertsStats(c *fiber.Ctx) error {
 		"status":  "success",
 		"message": "Alerts statistics",
 		"data":    stats,
-	})
-}
-
-// Get alerts dashboard
-func GetAlertsDashboard(c *fiber.Ctx) error {
-	db := database.DB
-
-	// Alertes critiques non résolues
-	var criticalAlerts []models.Alert
-	db.Where("niveau_gravite = ? AND statut = ?", "critical", "active").
-		Preload("Migrant").
-		Limit(10).
-		Order("created_at DESC").
-		Find(&criticalAlerts)
-
-	// Alertes récentes (dernières 24h)
-	yesterday := time.Now().AddDate(0, 0, -1)
-	var recentAlerts []models.Alert
-	db.Where("created_at >= ?", yesterday).
-		Preload("Migrant").
-		Limit(20).
-		Order("created_at DESC").
-		Find(&recentAlerts)
-
-	dashboard := map[string]interface{}{
-		"critical_alerts": criticalAlerts,
-		"recent_alerts":   recentAlerts,
-	}
-
-	return c.JSON(fiber.Map{
-		"status":  "success",
-		"message": "Alerts dashboard",
-		"data":    dashboard,
-	})
-}
-
-// Search with advanced filters
-func SearchAlerts(c *fiber.Ctx) error {
-	db := database.DB
-
-	typeAlerte := c.Query("type_alerte")
-	gravite := c.Query("gravite")
-	statut := c.Query("statut")
-	dateFrom := c.Query("date_from")
-	dateTo := c.Query("date_to")
-
-	var alerts []models.Alert
-	query := db.Model(&models.Alert{}).Preload("Migrant")
-
-	if typeAlerte != "" {
-		query = query.Where("type_alerte = ?", typeAlerte)
-	}
-	if gravite != "" {
-		query = query.Where("niveau_gravite = ?", gravite)
-	}
-	if statut != "" {
-		query = query.Where("statut = ?", statut)
-	}
-	if dateFrom != "" {
-		query = query.Where("created_at >= ?", dateFrom)
-	}
-	if dateTo != "" {
-		query = query.Where("created_at <= ?", dateTo)
-	}
-
-	err := query.Order("niveau_gravite DESC, created_at DESC").Find(&alerts).Error
-	if err != nil {
-		return c.Status(500).JSON(fiber.Map{
-			"status":  "error",
-			"message": "Failed to search alerts",
-			"error":   err.Error(),
-		})
-	}
-
-	return c.JSON(fiber.Map{
-		"status":  "success",
-		"message": "Search results for alerts",
-		"data":    alerts,
-	})
-}
-
-// Auto-expire alerts
-func AutoExpireAlerts(c *fiber.Ctx) error {
-	db := database.DB
-
-	now := time.Now()
-	result := db.Model(&models.Alert{}).
-		Where("date_expiration <= ? AND statut = ?", now, "active").
-		Update("statut", "expired")
-
-	if result.Error != nil {
-		return c.Status(500).JSON(fiber.Map{
-			"status":  "error",
-			"message": "Failed to auto-expire alerts",
-			"error":   result.Error.Error(),
-		})
-	}
-
-	return c.JSON(fiber.Map{
-		"status":  "success",
-		"message": "Auto-expired alerts",
-		"data":    map[string]interface{}{"expired_count": result.RowsAffected},
 	})
 }

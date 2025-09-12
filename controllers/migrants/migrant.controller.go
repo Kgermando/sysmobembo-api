@@ -13,7 +13,6 @@ import (
 
 // Fonction pour générer automatiquement le NumeroIdentifiant
 func generateNumeroIdentifiant() string {
-	// Format: MIG-YYYY-XXXXXX (où YYYY = année, XXXXXX = numéro séquentiel)
 	year := time.Now().Year()
 
 	// Compter le nombre de migrants créés cette année

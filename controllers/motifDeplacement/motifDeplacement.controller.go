@@ -127,14 +127,42 @@ func GetMotifDeplacement(c *fiber.Ctx) error {
 	})
 }
 
-// Get motifs by migrant
+// Get motifs by migrant with pagination
 func GetMotifsByMigrant(c *fiber.Ctx) error {
 	migrantUUID := c.Params("migrant_uuid")
 	db := database.DB
-	var motifs []models.MotifDeplacement
 
-	err := db.Where("migrant_uuid = ?", migrantUUID).
+	page, err := strconv.Atoi(c.Query("page", "1"))
+	if err != nil || page <= 0 {
+		page = 1
+	}
+	limit, err := strconv.Atoi(c.Query("limit", "15"))
+	if err != nil || limit <= 0 {
+		limit = 15
+	}
+	offset := (page - 1) * limit
+
+	search := c.Query("search", "")
+
+	var motifs []models.MotifDeplacement
+	var totalRecords int64
+
+	query := db.Model(&models.MotifDeplacement{}).
 		Preload("Migrant").
+		Where("migrant_uuid = ?", migrantUUID)
+
+	// Recherche textuelle
+	if search != "" {
+		query = query.Where("type_motif ILIKE ? OR motif_principal ILIKE ? OR description ILIKE ?",
+			"%"+search+"%", "%"+search+"%", "%"+search+"%")
+	}
+
+	// Count total
+	query.Count(&totalRecords)
+
+	// Get paginated results
+	err = query.Offset(offset).
+		Limit(limit).
 		Order("created_at DESC").
 		Find(&motifs).Error
 
@@ -146,10 +174,20 @@ func GetMotifsByMigrant(c *fiber.Ctx) error {
 		})
 	}
 
+	totalPages := int((totalRecords + int64(limit) - 1) / int64(limit))
+
+	pagination := map[string]interface{}{
+		"total_records": totalRecords,
+		"total_pages":   totalPages,
+		"current_page":  page,
+		"page_size":     limit,
+	}
+
 	return c.JSON(fiber.Map{
-		"status":  "success",
-		"message": "Motifs for migrant",
-		"data":    motifs,
+		"status":     "success",
+		"message":    "Motifs for migrant retrieved successfully",
+		"data":       motifs,
+		"pagination": pagination,
 	})
 }
 
@@ -346,111 +384,5 @@ func GetMotifsStats(c *fiber.Ctx) error {
 		"status":  "success",
 		"message": "Motifs statistics",
 		"data":    stats,
-	})
-}
-
-// Get urgency analysis
-func GetUrgencyAnalysis(c *fiber.Ctx) error {
-	db := database.DB
-
-	var results []map[string]interface{}
-
-	err := db.Model(&models.MotifDeplacement{}).
-		Select("urgence, type_motif, COUNT(*) as count, AVG(duree_estimee) as duree_moyenne").
-		Group("urgence, type_motif").
-		Order("urgence DESC, count DESC").
-		Scan(&results).Error
-
-	if err != nil {
-		return c.Status(500).JSON(fiber.Map{
-			"status":  "error",
-			"message": "Failed to fetch urgency analysis",
-			"error":   err.Error(),
-		})
-	}
-
-	return c.JSON(fiber.Map{
-		"status":  "success",
-		"message": "Urgency analysis",
-		"data":    results,
-	})
-}
-
-// Get temporal analysis
-func GetTemporalAnalysis(c *fiber.Ctx) error {
-	db := database.DB
-
-	var monthlyStats []map[string]interface{}
-
-	err := db.Model(&models.MotifDeplacement{}).
-		Select("EXTRACT(YEAR FROM created_at) as year, EXTRACT(MONTH FROM created_at) as month, COUNT(*) as count").
-		Group("EXTRACT(YEAR FROM created_at), EXTRACT(MONTH FROM created_at)").
-		Order("year DESC, month DESC").
-		Limit(12).
-		Scan(&monthlyStats).Error
-
-	if err != nil {
-		return c.Status(500).JSON(fiber.Map{
-			"status":  "error",
-			"message": "Failed to fetch temporal analysis",
-			"error":   err.Error(),
-		})
-	}
-
-	return c.JSON(fiber.Map{
-		"status":  "success",
-		"message": "Temporal analysis of displacement motifs",
-		"data":    monthlyStats,
-	})
-}
-
-// Search with advanced filters
-func SearchMotifDeplacements(c *fiber.Ctx) error {
-	db := database.DB
-
-	typeMotif := c.Query("type_motif")
-	urgence := c.Query("urgence")
-	volontaire := c.Query("volontaire")
-	conflitArme := c.Query("conflit_arme")
-	dateFrom := c.Query("date_from")
-	dateTo := c.Query("date_to")
-
-	var motifs []models.MotifDeplacement
-	query := db.Model(&models.MotifDeplacement{}).Preload("Migrant")
-
-	if typeMotif != "" {
-		query = query.Where("type_motif = ?", typeMotif)
-	}
-	if urgence != "" {
-		query = query.Where("urgence = ?", urgence)
-	}
-	if volontaire != "" {
-		isVolontaire := volontaire == "true"
-		query = query.Where("caractere_volontaire = ?", isVolontaire)
-	}
-	if conflitArme != "" {
-		hasConflitArme := conflitArme == "true"
-		query = query.Where("conflit_arme = ?", hasConflitArme)
-	}
-	if dateFrom != "" {
-		query = query.Where("date_declenchement >= ?", dateFrom)
-	}
-	if dateTo != "" {
-		query = query.Where("date_declenchement <= ?", dateTo)
-	}
-
-	err := query.Order("created_at DESC").Find(&motifs).Error
-	if err != nil {
-		return c.Status(500).JSON(fiber.Map{
-			"status":  "error",
-			"message": "Failed to search motifs",
-			"error":   err.Error(),
-		})
-	}
-
-	return c.JSON(fiber.Map{
-		"status":  "success",
-		"message": "Search results for motifs de déplacement",
-		"data":    motifs,
 	})
 }

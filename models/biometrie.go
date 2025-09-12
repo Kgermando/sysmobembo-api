@@ -31,15 +31,14 @@ type Biometrie struct {
 	ResolutionCapture string    `json:"resolution_capture"`
 	OperateurCapture  string    `json:"operateur_capture"`
 
+	// Sécurité et chiffrement
+	Chiffre         bool   `json:"chiffre" gorm:"default:false"`          // Indique si les données sont chiffrées
+	CleChiffrement  string `json:"-" gorm:"type:text"`                    // Clé de chiffrement (non exposée en JSON)
+
 	// Validation et vérification
 	Verifie          bool       `json:"verifie" gorm:"default:false"`
 	DateVerification *time.Time `json:"date_verification"`
 	ScoreConfiance   *float64   `json:"score_confiance"` // 0-1
-
-	// Sécurité
-	Chiffre        bool       `json:"chiffre" gorm:"default:true"`
-	CleChiffrement string     `json:"cle_chiffrement"`
-	DateExpiration *time.Time `json:"date_expiration"`
 
 	// Relation avec Migrant
 	Migrant Migrant `json:"migrant" gorm:"constraint:OnDelete:CASCADE"`

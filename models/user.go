@@ -1,8 +1,6 @@
 package models
 
 import (
-	"encoding/json"
-	"fmt"
 	"time"
 
 	"golang.org/x/crypto/bcrypt"
@@ -40,12 +38,12 @@ type User struct {
 	TelephoneUrgence string `json:"telephone_urgence"`
 
 	// Adresse
-	Province        string `gorm:"not null" json:"province"`
-	Ville           string `gorm:"not null" json:"ville"`
-	Commune         string `gorm:"not null" json:"commune"`
-	Quartier        string `gorm:"not null" json:"quartier"`
-	Avenue          string `json:"avenue"`
-	Numero          string `json:"numero"`
+	Province string `gorm:"not null" json:"province"`
+	Ville    string `gorm:"not null" json:"ville"`
+	Commune  string `gorm:"not null" json:"commune"`
+	Quartier string `gorm:"not null" json:"quartier"`
+	Avenue   string `json:"avenue"`
+	Numero   string `json:"numero"`
 
 	// Informations professionnelles
 	Matricule        string    `gorm:"unique; not null" json:"matricule"`
@@ -102,7 +100,6 @@ type UserResponse struct {
 	Nom           string    `json:"nom"`
 	PostNom       string    `json:"postnom"`
 	Prenom        string    `json:"prenom"`
-	Fullname      string    `json:"fullname"`
 	Sexe          string    `json:"sexe"`
 	DateNaissance time.Time `json:"date_naissance"`
 	LieuNaissance string    `json:"lieu_naissance"`
@@ -164,10 +161,6 @@ type UserResponse struct {
 	PhotoCNI    string `json:"photo_cni"`
 	CVDocument  string `json:"cv_document"`
 
-	// QR Code
-	QRCode     string `json:"qr_code"`
-	QRCodeData string `json:"qr_code_data"`
-
 	// Système
 	Role       string `json:"role"`
 	Permission string `json:"permission"`
@@ -194,82 +187,4 @@ func (u *User) SetPassword(p string) {
 func (u *User) ComparePassword(p string) error {
 	err := bcrypt.CompareHashAndPassword([]byte(u.Password), []byte(p))
 	return err
-}
-
-// QRCodeData représente les données à encoder dans le QR code
-type QRCodeData struct {
-	UUID         string    `json:"uuid"`
-	Matricule    string    `json:"matricule"`
-	Nom          string    `json:"nom"`
-	PostNom      string    `json:"postnom"`
-	Prenom       string    `json:"prenom"`
-	Grade        string    `json:"grade"`
-	Fonction     string    `json:"fonction"`
-	Service      string    `json:"service"`
-	Direction    string    `json:"direction"`
-	Ministere    string    `json:"ministere"`
-	PhotoProfil  string    `json:"photo_profil"`
-	DateEmission time.Time `json:"date_emission"`
-	ValidUntil   time.Time `json:"valid_until"`
-}
-
-// GenerateQRCodeData génère les données pour le QR code de l'utilisateur
-func (u *User) GenerateQRCodeData(validityDuration time.Duration) (string, error) {
-	qrData := QRCodeData{
-		UUID:         u.UUID,
-		Matricule:    u.Matricule,
-		Nom:          u.Nom,
-		PostNom:      u.PostNom,
-		Prenom:       u.Prenom,
-		Grade:        u.Grade,
-		Fonction:     u.Fonction,
-		Service:      u.Service,
-		Direction:    u.Direction,
-		Ministere:    u.Ministere,
-		PhotoProfil:  u.PhotoProfil,
-		DateEmission: time.Now(),
-		ValidUntil:   time.Now().Add(validityDuration),
-	}
-
-	jsonData, err := json.Marshal(qrData)
-	if err != nil {
-		return "", fmt.Errorf("erreur lors de l'encodage des données QR: %v", err)
-	}
-
-	return string(jsonData), nil
-}
-
-// GetFullName retourne le nom complet de l'utilisateur
-func (u *User) GetFullName() string {
-	return fmt.Sprintf("%s %s %s", u.Nom, u.PostNom, u.Prenom)
-}
-
-// IsQRCodeValid vérifie si le QR code est encore valide
-func (u *User) IsQRCodeValid() bool {
-	if u.QRCodeData == "" {
-		return false
-	}
-
-	var qrData QRCodeData
-	err := json.Unmarshal([]byte(u.QRCodeData), &qrData)
-	if err != nil {
-		return false
-	}
-
-	return time.Now().Before(qrData.ValidUntil)
-}
-
-// GetQRCodeInfo retourne les informations du QR code
-func (u *User) GetQRCodeInfo() (*QRCodeData, error) {
-	if u.QRCodeData == "" {
-		return nil, fmt.Errorf("aucun QR code généré")
-	}
-
-	var qrData QRCodeData
-	err := json.Unmarshal([]byte(u.QRCodeData), &qrData)
-	if err != nil {
-		return nil, fmt.Errorf("erreur lors du décodage du QR code: %v", err)
-	}
-
-	return &qrData, nil
 }

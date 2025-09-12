@@ -210,7 +210,7 @@ func AuthUser(c *fiber.Ctx) error {
 		Nom:           u.Nom,
 		PostNom:       u.PostNom,
 		Prenom:        u.Prenom,
-		Fullname:      u.GetFullName(),
+	
 		Sexe:          u.Sexe,
 		DateNaissance: u.DateNaissance,
 		LieuNaissance: u.LieuNaissance,
@@ -270,11 +270,7 @@ func AuthUser(c *fiber.Ctx) error {
 		// Documents et photos
 		PhotoProfil: u.PhotoProfil,
 		CVDocument:  u.CVDocument,
-
-		// QR Code
-		QRCode:     u.QRCode,
-		QRCodeData: u.QRCodeData,
-
+ 
 		// Système
 		Role:       u.Role,
 		Permission: u.Permission,
@@ -549,91 +545,7 @@ func ChangePassword(c *fiber.Ctx) error {
 	})
 }
 
-// GenerateUserQRCode génère ou met à jour le QR code de l'utilisateur
-func GenerateUserQRCode(c *fiber.Ctx) error {
-	token := c.Query("token")
-
-	UserUUID, err := utils.VerifyJwt(token)
-	if err != nil {
-		return c.Status(401).JSON(fiber.Map{
-			"status":  "error",
-			"message": "Token invalide ou expiré",
-		})
-	}
-
-	user := new(models.User)
-	result := database.DB.Where("uuid = ?", UserUUID).First(&user)
-
-	if result.Error != nil {
-		return c.Status(404).JSON(fiber.Map{
-			"status":  "error",
-			"message": "Utilisateur non trouvé",
-		})
-	}
-
-	// Générer les données du QR code (validité de 1 an)
-	qrData, err := user.GenerateQRCodeData(365 * 24 * time.Hour)
-	if err != nil {
-		return c.Status(500).JSON(fiber.Map{
-			"status":  "error",
-			"message": "Erreur lors de la génération des données QR",
-			"error":   err.Error(),
-		})
-	}
-
-	// Sauvegarder les données QR dans la base de données
-	user.QRCodeData = qrData
-	database.DB.Save(&user)
-
-	return c.JSON(fiber.Map{
-		"status":  "success",
-		"message": "QR code généré avec succès",
-		"data": fiber.Map{
-			"qr_code_data": qrData,
-			"user_uuid":    user.UUID,
-		},
-	})
-}
-
-// GetUserQRCodeInfo récupère les informations du QR code de l'utilisateur
-func GetUserQRCodeInfo(c *fiber.Ctx) error {
-	token := c.Query("token")
-
-	UserUUID, err := utils.VerifyJwt(token)
-	if err != nil {
-		return c.Status(401).JSON(fiber.Map{
-			"status":  "error",
-			"message": "Token invalide ou expiré",
-		})
-	}
-
-	user := new(models.User)
-	result := database.DB.Where("uuid = ?", UserUUID).First(&user)
-
-	if result.Error != nil {
-		return c.Status(404).JSON(fiber.Map{
-			"status":  "error",
-			"message": "Utilisateur non trouvé",
-		})
-	}
-
-	qrInfo, err := user.GetQRCodeInfo()
-	if err != nil {
-		return c.Status(404).JSON(fiber.Map{
-			"status":  "error",
-			"message": "Aucun QR code trouvé",
-			"error":   err.Error(),
-		})
-	}
-
-	return c.JSON(fiber.Map{
-		"status":   "success",
-		"message":  "Informations QR code récupérées",
-		"data":     qrInfo,
-		"is_valid": user.IsQRCodeValid(),
-	})
-}
-
+ 
 // CreateAdminUser crée un utilisateur administrateur avec mot de passe hashé
 func CreateAdminUser() error {
 	// Vérifier si un admin existe déjà

@@ -30,12 +30,6 @@ type Alert struct {
 	// Métadonnées de traitement
 	DateResolution        *time.Time `json:"date_resolution"`
 	CommentaireResolution string     `json:"commentaire_resolution" gorm:"type:text"`
-	NotifierAutorités     bool       `json:"notifier_autorites" gorm:"default:false"`
-
-	// Géolocalisation de l'alerte
-	Latitude  *float64 `json:"latitude"`
-	Longitude *float64 `json:"longitude"`
-	Adresse   string   `json:"adresse"`
 
 	// Relation avec Migrant
 	Migrant Migrant `json:"migrant" gorm:"constraint:OnDelete:CASCADE"`
