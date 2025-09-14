@@ -110,7 +110,7 @@ func GetPaginatedBiometries(c *fiber.Ctx) error {
 
 	query := db.Model(&models.Biometrie{}).
 		Preload("Migrant").
-		Select("uuid, migrant_uuid, type_biometrie, index_doigt, qualite_donnee, algorithme_encodage, taille_fichier, date_capture, dispositif_capture, verifie, score_confiance, chiffre, created_at, updated_at") // Exclure les données sensibles
+		Select("uuid, migrant_uuid, type_biometrie, index_doigt, qualite_donnee, algorithme_encodage, taille_fichier, date_capture, disposif_capture, verifie, score_confiance, chiffre, created_at, updated_at") // Exclure les données sensibles
 
 	// Filtrer par migrant si spécifié
 	if migrantUUID != "" {
@@ -167,7 +167,7 @@ func GetAllBiometries(c *fiber.Ctx) error {
 	db := database.DB
 	var biometries []models.Biometrie
 
-	err := db.Select("uuid, migrant_uuid, type_biometrie, index_doigt, qualite_donnee, algorithme_encodage, taille_fichier, date_capture, dispositif_capture, verifie, score_confiance, chiffre, created_at, updated_at").
+	err := db.Select("uuid, migrant_uuid, type_biometrie, index_doigt, qualite_donnee, algorithme_encodage, taille_fichier, date_capture, disposif_capture, verifie, score_confiance, chiffre, created_at, updated_at").
 		Preload("Migrant").
 		Find(&biometries).Error
 
@@ -198,7 +198,7 @@ func GetBiometrie(c *fiber.Ctx) error {
 
 	// Exclure les données sensibles par défaut
 	if includeSensitive != "true" {
-		query = query.Select("uuid, migrant_uuid, type_biometrie, index_doigt, qualite_donnee, algorithme_encodage, taille_fichier, date_capture, dispositif_capture, verifie, score_confiance, chiffre, created_at, updated_at")
+		query = query.Select("uuid, migrant_uuid, type_biometrie, index_doigt, qualite_donnee, algorithme_encodage, taille_fichier, date_capture, disposif_capture, verifie, score_confiance, chiffre, created_at, updated_at")
 	}
 
 	err := query.First(&biometrie).Error
@@ -224,7 +224,7 @@ func GetBiometriesByMigrant(c *fiber.Ctx) error {
 	var biometries []models.Biometrie
 
 	err := db.Where("migrant_uuid = ?", migrantUUID).
-		Select("uuid, migrant_uuid, type_biometrie, index_doigt, qualite_donnee, algorithme_encodage, taille_fichier, date_capture, dispositif_capture, verifie, score_confiance, chiffre, created_at, updated_at").
+		Select("uuid, migrant_uuid, type_biometrie, index_doigt, qualite_donnee, algorithme_encodage, taille_fichier, date_capture, disposif_capture, verifie, score_confiance, chiffre, created_at, updated_at").
 		Preload("Migrant").
 		Order("created_at DESC").
 		Find(&biometries).Error
@@ -250,7 +250,7 @@ func GetVerifiedBiometries(c *fiber.Ctx) error {
 	var biometries []models.Biometrie
 
 	err := db.Where("verifie = ?", true).
-		Select("uuid, migrant_uuid, type_biometrie, index_doigt, qualite_donnee, algorithme_encodage, taille_fichier, date_capture, dispositif_capture, verifie, score_confiance, chiffre, created_at, updated_at").
+		Select("uuid, migrant_uuid, type_biometrie, index_doigt, qualite_donnee, algorithme_encodage, taille_fichier, date_capture, disposif_capture, verifie, score_confiance, chiffre, created_at, updated_at").
 		Preload("Migrant").
 		Order("score_confiance DESC").
 		Find(&biometries).Error
@@ -357,7 +357,7 @@ func CreateBiometrie(c *fiber.Ctx) error {
 	}
 
 	// Recharger sans les données sensibles
-	database.DB.Select("uuid, migrant_uuid, type_biometrie, index_doigt, qualite_donnee, algorithme_encodage, taille_fichier, date_capture, dispositif_capture, verifie, score_confiance, chiffre, created_at, updated_at").
+	database.DB.Select("uuid, migrant_uuid, type_biometrie, index_doigt, qualite_donnee, algorithme_encodage, taille_fichier, date_capture, disposif_capture, verifie, score_confiance, chiffre, created_at, updated_at").
 		Preload("Migrant").
 		First(biometrie, "uuid = ?", biometrie.UUID)
 
@@ -412,7 +412,7 @@ func VerifyBiometrie(c *fiber.Ctx) error {
 	}
 
 	// Recharger sans données sensibles
-	db.Select("uuid, migrant_uuid, type_biometrie, index_doigt, qualite_donnee, algorithme_encodage, taille_fichier, date_capture, dispositif_capture, verifie, score_confiance, chiffre, created_at, updated_at").
+	db.Select("uuid, migrant_uuid, type_biometrie, index_doigt, qualite_donnee, algorithme_encodage, taille_fichier, date_capture, disposif_capture, verifie, score_confiance, chiffre, created_at, updated_at").
 		Preload("Migrant").
 		First(&biometrie)
 
@@ -461,7 +461,7 @@ func UpdateBiometrie(c *fiber.Ctx) error {
 	}
 
 	// Recharger sans données sensibles
-	db.Select("uuid, migrant_uuid, type_biometrie, index_doigt, qualite_donnee, algorithme_encodage, taille_fichier, date_capture, dispositif_capture, verifie, score_confiance, chiffre, created_at, updated_at").
+	db.Select("uuid, migrant_uuid, type_biometrie, index_doigt, qualite_donnee, algorithme_encodage, taille_fichier, date_capture, disposif_capture, verifie, score_confiance, chiffre, created_at, updated_at").
 		Preload("Migrant").
 		First(&biometrie)
 
