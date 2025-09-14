@@ -3,6 +3,7 @@ package migrants
 import (
 	"fmt"
 	"strconv"
+	"strings"
 	"time"
 
 	"github.com/gofiber/fiber/v2"
@@ -10,6 +11,20 @@ import (
 	"github.com/kgermando/sysmobembo-api/models"
 	"github.com/kgermando/sysmobembo-api/utils"
 )
+
+// normalizeSexe normalise les différents formats de sexe/genre vers M ou F
+func normalizeSexe(sexe string) string {
+	sexe = strings.ToLower(strings.TrimSpace(sexe))
+
+	switch sexe {
+	case "m", "masculin", "homme", "male", "man":
+		return "M"
+	case "f", "féminin", "feminin", "femme", "female", "woman":
+		return "F"
+	default:
+		return strings.ToUpper(sexe) // Retourne tel quel en majuscule pour laisser la validation s'en occuper
+	}
+}
 
 // Fonction pour générer automatiquement le NumeroIdentifiant
 func generateNumeroIdentifiant() string {
@@ -47,7 +62,7 @@ func GetPaginatedMigrants(c *fiber.Ctx) error {
 	statutMigratoire := c.Query("statut_migratoire", "")
 	nationalite := c.Query("nationalite", "")
 	paysOrigine := c.Query("pays_origine", "")
-	genre := c.Query("genre", "")
+	sexe := c.Query("sexe", "")
 	actif := c.Query("actif", "")
 	typeDocument := c.Query("type_document", "")
 
@@ -82,8 +97,8 @@ func GetPaginatedMigrants(c *fiber.Ctx) error {
 		query = query.Where("pays_origine ILIKE ?", "%"+paysOrigine+"%")
 	}
 
-	if genre != "" {
-		query = query.Where("genre = ?", genre)
+	if sexe != "" {
+		query = query.Where("sexe = ?", sexe)
 	}
 
 	if actif != "" {
@@ -164,7 +179,7 @@ func GetPaginatedMigrants(c *fiber.Ctx) error {
 		"statut_migratoire":    statutMigratoire,
 		"nationalite":          nationalite,
 		"pays_origine":         paysOrigine,
-		"genre":                genre,
+		"sexe":                 sexe,
 		"actif":                actif,
 		"type_document":        typeDocument,
 		"date_creation_debut":  dateCreationDebut,
@@ -262,9 +277,57 @@ func CreateMigrant(c *fiber.Ctx) error {
 	migrant.UUID = utils.GenerateUUID()
 	migrant.NumeroIdentifiant = generateNumeroIdentifiant()
 
+	// Normaliser le sexe si fourni
+	if migrant.Sexe != "" {
+		migrant.Sexe = normalizeSexe(migrant.Sexe)
+	}
+
 	// Validation des données
-	if err := utils.ValidateStruct(*migrant); err != nil {
-		return c.Status(400).JSON(err)
+	if errors := utils.ValidateStruct(*migrant); len(errors) > 0 {
+		// Construire un message d'erreur plus lisible
+		var errorMessages []string
+		for _, err := range errors {
+			switch err.FailedField {
+			case "Migrant.Sexe":
+				if err.Tag == "oneof" {
+					errorMessages = append(errorMessages, "Le sexe doit être 'M' (Masculin) ou 'F' (Féminin)")
+				} else {
+					errorMessages = append(errorMessages, "Le sexe est requis")
+				}
+			case "Migrant.DateNaissance":
+				errorMessages = append(errorMessages, "La date de naissance est requise")
+			case "Migrant.LieuNaissance":
+				errorMessages = append(errorMessages, "Le lieu de naissance est requis")
+			case "Migrant.Nationalite":
+				errorMessages = append(errorMessages, "La nationalité est requise")
+			case "Migrant.TypeDocument":
+				if err.Tag == "oneof" {
+					errorMessages = append(errorMessages, "Le type de document doit être: passport, carte_identite ou permis_conduire")
+				} else {
+					errorMessages = append(errorMessages, "Le type de document est requis")
+				}
+			case "Migrant.NumeroDocument":
+				errorMessages = append(errorMessages, "Le numéro de document est requis")
+			case "Migrant.StatutMigratoire":
+				if err.Tag == "oneof" {
+					errorMessages = append(errorMessages, "Le statut migratoire doit être: regulier, irregulier, demandeur_asile ou refugie")
+				} else {
+					errorMessages = append(errorMessages, "Le statut migratoire est requis")
+				}
+			case "Migrant.SituationMatrimoniale":
+				if err.Tag == "oneof" {
+					errorMessages = append(errorMessages, "La situation matrimoniale doit être: celibataire, marie, divorce ou veuf")
+				}
+			default:
+				errorMessages = append(errorMessages, fmt.Sprintf("Erreur de validation pour %s: %s", err.FailedField, err.Tag))
+			}
+		}
+
+		return c.Status(400).JSON(fiber.Map{
+			"status":  "error",
+			"message": "Erreurs de validation",
+			"errors":  errorMessages,
+		})
 	}
 
 	// Vérifier l'unicité du numéro de document s'il est fourni
@@ -334,6 +397,11 @@ func UpdateMigrant(c *fiber.Ctx) error {
 	// Conserver l'UUID et le NumeroIdentifiant existants
 	updateData.UUID = migrant.UUID
 	updateData.NumeroIdentifiant = migrant.NumeroIdentifiant
+
+	// Normaliser le sexe si fourni
+	if updateData.Sexe != "" {
+		updateData.Sexe = normalizeSexe(updateData.Sexe)
+	}
 
 	// Vérifier l'unicité du numéro de document s'il est modifié
 	if updateData.NumeroDocument != "" && updateData.NumeroDocument != migrant.NumeroDocument {
