@@ -32,12 +32,12 @@ func GetPaginatedUsers(c *fiber.Ctx) error {
 
 	// Count total records matching the search query
 	db.Model(&models.User{}).
-		Where("nom ILIKE ? OR postnom ILIKE ? OR prenom ILIKE ? OR role ILIKE ? OR matricule ILIKE ?",
+		Where("nom ILIKE ? OR post_nom ILIKE ? OR prenom ILIKE ? OR role ILIKE ? OR matricule ILIKE ?",
 			"%"+search+"%", "%"+search+"%", "%"+search+"%", "%"+search+"%", "%"+search+"%").
 		Count(&totalRecords)
 
 	err = db.
-		Where("nom ILIKE ? OR postnom ILIKE ? OR prenom ILIKE ? OR role ILIKE ? OR matricule ILIKE ?",
+		Where("nom ILIKE ? OR post_nom ILIKE ? OR prenom ILIKE ? OR role ILIKE ? OR matricule ILIKE ?",
 			"%"+search+"%", "%"+search+"%", "%"+search+"%", "%"+search+"%", "%"+search+"%").
 		Offset(offset).
 		Limit(limit).
@@ -300,5 +300,3 @@ func DeleteUser(c *fiber.Ctx) error {
 		},
 	)
 }
-
-

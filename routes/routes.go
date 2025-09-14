@@ -117,11 +117,28 @@ func Setup(app *fiber.App) {
 	predic.Get("/risk", dashboard.GetAdvancedRiskAnalysis)
 	predic.Get("/models-performance", dashboard.GetPredictiveModelsPerformance)
 
+	// Nouvelles routes pour les endpoints manquants
+	predic.Get("/migration-flow", dashboard.GetMigrationFlow)
+	predic.Get("/risk-analysis", dashboard.GetAdvancedRiskAnalysisData)
+	predic.Get("/demographic", dashboard.GetDemographicAnalysis)
+	predic.Get("/movement-patterns", dashboard.GetMovementPatterns)
+
 	// Dashboard Alertes - Système de monitoring avancé
 	alertsDash := dash.Group("/alerts")
 	alertsDash.Get("/realtime", dashboard.GetRealtimeDashboard)
-	alertsDash.Get("/advanced-metrics", dashboard.GetAdvancedMetrics)
-	alertsDash.Get("/live-stream", dashboard.GetLiveAlertStream)
-	alertsDash.Get("/heatmap", dashboard.GetAlertHeatmap)
+	alertsDash.Get("/date-range", dashboard.GetAlertsByDateRange)
+	alertsDash.Get("/heatmap", dashboard.GetAlertsHeatmap)
+	alertsDash.Get("/notifications", dashboard.GetAlertsNotifications)
+	alertsDash.Put("/bulk-update", dashboard.BulkUpdateAlerts)
+	alertsDash.Get("/export", dashboard.GetAlertsExport)
+
+	// Dashboard Analyse des Déplacements - Indicateurs RDC
+	deplacementDash := dash.Group("/deplacement")
+	deplacementDash.Get("/analyse", dashboard.AnalyseDeplacement)
+	deplacementDash.Get("/province/:province", dashboard.AnalyseDeplacementParProvince)
+	deplacementDash.Get("/tendances", dashboard.TendancesEvolution)
+	deplacementDash.Get("/alertes-temps-reel", dashboard.AlertesTempsReel)
+	deplacementDash.Get("/repartition-geo", dashboard.RepartitionGeographiqueDetaillee)
+	deplacementDash.Get("/causes", dashboard.AnalyseCausesDetaillees)
 
 }

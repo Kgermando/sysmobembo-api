@@ -544,9 +544,9 @@ func GetBiometricsStats(c *fiber.Ctx) error {
 	// Dispositifs de capture les plus utilisés
 	var captureDevices []map[string]interface{}
 	db.Model(&models.Biometrie{}).
-		Where("dispositif_capture IS NOT NULL AND dispositif_capture != ''").
-		Select("dispositif_capture, COUNT(*) as count").
-		Group("dispositif_capture").
+		Where("disposif_capture IS NOT NULL AND disposif_capture != ''").
+		Select("disposif_capture, COUNT(*) as count").
+		Group("disposif_capture").
 		Order("count DESC").
 		Limit(10).
 		Scan(&captureDevices)
@@ -567,4 +567,3 @@ func GetBiometricsStats(c *fiber.Ctx) error {
 		"data":    stats,
 	})
 }
- 
