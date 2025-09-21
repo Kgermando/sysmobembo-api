@@ -42,6 +42,7 @@ func Setup(app *fiber.App) {
 	u.Post("/create", users.CreateUser)
 	u.Put("/update/:uuid", users.UpdateUser)
 	u.Delete("/delete/:uuid", users.DeleteUser)
+	u.Get("/export/excel", users.ExportUsersToExcel)
 
 	// Alerts controller
 	alertsGroup := api.Group("/alerts")
@@ -54,6 +55,7 @@ func Setup(app *fiber.App) {
 	alertsGroup.Put("/resolve/:uuid", alerts.ResolveAlert)
 	alertsGroup.Delete("/delete/:uuid", alerts.DeleteAlert)
 	alertsGroup.Get("/stats", alerts.GetAlertsStats)
+	alertsGroup.Get("/export/excel", alerts.ExportAlertsToExcel)
 
 	// Biometrics controller
 	bio := api.Group("/biometrics")
@@ -67,6 +69,7 @@ func Setup(app *fiber.App) {
 	bio.Put("/update/:uuid", biometrics.UpdateBiometrie)
 	bio.Delete("/delete/:uuid", biometrics.DeleteBiometrie)
 	bio.Get("/stats", biometrics.GetBiometricsStats)
+	bio.Get("/export/excel", biometrics.ExportBiometriesToExcel)
 
 	// Geolocation controller
 	geo := api.Group("/geolocations")
@@ -78,6 +81,7 @@ func Setup(app *fiber.App) {
 	geo.Put("/update/:uuid", geolocation.UpdateGeolocalisation)
 	geo.Delete("/delete/:uuid", geolocation.DeleteGeolocalisation)
 	geo.Get("/stats", geolocation.GetGeolocalisationsStats)
+	geo.Get("/export/excel", geolocation.ExportGeolocalisationsToExcel)
 
 	// Migrants controller
 	migrant := api.Group("/migrants")
@@ -88,6 +92,7 @@ func Setup(app *fiber.App) {
 	migrant.Put("/update/:uuid", migrants.UpdateMigrant)
 	migrant.Delete("/delete/:uuid", migrants.DeleteMigrant)
 	migrant.Get("/stats", migrants.GetMigrantsStats)
+	migrant.Get("/export/excel", migrants.ExportMigrantsToExcel)
 
 	// Motif Deplacement controller
 	motif := api.Group("/motif-deplacements")
@@ -99,6 +104,7 @@ func Setup(app *fiber.App) {
 	motif.Put("/update/:uuid", motifDeplacement.UpdateMotifDeplacement)
 	motif.Delete("/delete/:uuid", motifDeplacement.DeleteMotifDeplacement)
 	motif.Get("/stats", motifDeplacement.GetMotifsStats)
+	motif.Get("/export/excel", motifDeplacement.ExportMotifDeplacementsToExcel)
 
 	// Dashboard GIS System controller
 	dash := api.Group("/dashboard")

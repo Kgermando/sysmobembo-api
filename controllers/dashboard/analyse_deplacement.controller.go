@@ -30,6 +30,8 @@ type IndicateursDeplacementResponse struct {
 
 type VolumeLocalisationIndicateurs struct {
 	NombreTotalPDI          int64                      `json:"nombre_total_pdi"`
+	NombreTotalMigrants     int64                      `json:"nombre_total_migrants"`
+	NombreDeplacesInternes  int64                      `json:"nombre_deplaces_internes"`
 	PersonnesRetournees     int64                      `json:"personnes_retournees"`
 	RepartitionGeographique []RepartitionProvinceStats `json:"repartition_geographique"`
 	EvolutionMensuelle      []EvolutionTemporelleStats `json:"evolution_mensuelle"`
@@ -148,13 +150,26 @@ func getVolumeLocalisationIndicateurs(periode int, province string) VolumeLocali
 	db := database.DB
 	dateDebut := time.Now().AddDate(0, -periode, 0)
 
-	// Nombre total de PDI (personnes déplacées internes)
-	var totalPDI int64
+	// Nombre total de migrants (tous les migrants actifs)
+	var totalMigrants int64
 	query := db.Model(&models.Migrant{}).Where("actif = ? AND created_at >= ?", true, dateDebut)
 	if province != "" {
 		query = query.Where("ville_actuelle = ? OR pays_actuel LIKE ?", province, "%"+province+"%")
 	}
-	query.Count(&totalPDI)
+	query.Count(&totalMigrants)
+
+	// Nombre de déplacés internes (migrants qui ont changé de province/ville dans le même pays)
+	var deplacesInternes int64
+	deplacesQuery := db.Model(&models.Migrant{}).
+		Where("actif = ? AND created_at >= ? AND pays_origine = pays_actuel AND lieu_naissance != ville_actuelle",
+			true, dateDebut)
+	if province != "" {
+		deplacesQuery = deplacesQuery.Where("ville_actuelle = ? OR pays_actuel LIKE ?", province, "%"+province+"%")
+	}
+	deplacesQuery.Count(&deplacesInternes)
+
+	// Le nombre total PDI correspond au nombre total de migrants (qui inclut déjà les déplacés internes)
+	totalPDI := totalMigrants
 
 	// Personnes retournées (basé sur type_mouvement = "residence_permanente" dans geolocalisation)
 	var personnesRetournees int64
@@ -174,6 +189,8 @@ func getVolumeLocalisationIndicateurs(periode int, province string) VolumeLocali
 
 	return VolumeLocalisationIndicateurs{
 		NombreTotalPDI:          totalPDI,
+		NombreTotalMigrants:     totalMigrants,
+		NombreDeplacesInternes:  deplacesInternes,
 		PersonnesRetournees:     personnesRetournees,
 		RepartitionGeographique: repartitionGeo,
 		EvolutionMensuelle:      evolutionMensuelle,

@@ -5,6 +5,7 @@ import (
 	"crypto/cipher"
 	"crypto/rand"
 	"encoding/base64"
+	"fmt"
 	"strconv"
 	"time"
 
@@ -12,6 +13,7 @@ import (
 	"github.com/kgermando/sysmobembo-api/database"
 	"github.com/kgermando/sysmobembo-api/models"
 	"github.com/kgermando/sysmobembo-api/utils"
+	"github.com/xuri/excelize/v2"
 )
 
 // =======================
@@ -566,4 +568,653 @@ func GetBiometricsStats(c *fiber.Ctx) error {
 		"message": "Biometrics statistics",
 		"data":    stats,
 	})
+}
+
+// =======================
+// EXCEL EXPORT
+// =======================
+
+// ExportBiometriesToExcel - Exporter les biométries vers Excel avec mise en forme
+func ExportBiometriesToExcel(c *fiber.Ctx) error {
+	db := database.DB
+
+	// Récupérer les paramètres de filtre
+	migrantUUID := c.Query("migrant_uuid", "")
+	typeBiometrie := c.Query("type_biometrie", "")
+	qualiteDonnee := c.Query("qualite_donnee", "")
+	verifie := c.Query("verifie", "")
+	chiffre := c.Query("chiffre", "")
+	dispositifCapture := c.Query("dispositif_capture", "")
+
+	var biometries []models.Biometrie
+
+	query := db.Model(&models.Biometrie{}).Preload("Migrant")
+
+	// Appliquer les filtres
+	if migrantUUID != "" {
+		query = query.Where("migrant_uuid = ?", migrantUUID)
+	}
+	if typeBiometrie != "" {
+		query = query.Where("type_biometrie = ?", typeBiometrie)
+	}
+	if qualiteDonnee != "" {
+		query = query.Where("qualite_donnee = ?", qualiteDonnee)
+	}
+	if verifie != "" {
+		switch verifie {
+		case "true":
+			query = query.Where("verifie = ?", true)
+		case "false":
+			query = query.Where("verifie = ?", false)
+		}
+	}
+	if chiffre != "" {
+		if chiffre == "true" {
+			query = query.Where("chiffre = ?", true)
+		} else if chiffre == "false" {
+			query = query.Where("chiffre = ?", false)
+		}
+	}
+	if dispositifCapture != "" {
+		query = query.Where("dispositif_capture ILIKE ?", "%"+dispositifCapture+"%")
+	}
+
+	// Récupérer toutes les données
+	err := query.Order("created_at DESC").Find(&biometries).Error
+	if err != nil {
+		return c.Status(500).JSON(fiber.Map{
+			"status":  "error",
+			"message": "Failed to fetch biometrics for export",
+			"error":   err.Error(),
+		})
+	}
+
+	// Créer un nouveau fichier Excel
+	f := excelize.NewFile()
+	defer func() {
+		if err := f.Close(); err != nil {
+			fmt.Println(err)
+		}
+	}()
+
+	// Supprimer la feuille par défaut et créer notre feuille
+	f.DeleteSheet("Sheet1")
+	index, err := f.NewSheet("Biométries")
+	if err != nil {
+		return c.Status(500).JSON(fiber.Map{
+			"status":  "error",
+			"message": "Failed to create Excel sheet",
+			"error":   err.Error(),
+		})
+	}
+	f.SetActiveSheet(index)
+
+	// ===== STYLES =====
+	// Style pour l'en-tête principal
+	headerStyle, err := f.NewStyle(&excelize.Style{
+		Font: &excelize.Font{
+			Bold:   true,
+			Size:   16,
+			Color:  "FFFFFF",
+			Family: "Calibri",
+		},
+		Fill: excelize.Fill{
+			Type:    "pattern",
+			Color:   []string{"#2E75B6"},
+			Pattern: 1,
+		},
+		Alignment: &excelize.Alignment{
+			Horizontal: "center",
+			Vertical:   "center",
+		},
+		Border: []excelize.Border{
+			{Type: "left", Color: "000000", Style: 1},
+			{Type: "top", Color: "000000", Style: 1},
+			{Type: "bottom", Color: "000000", Style: 1},
+			{Type: "right", Color: "000000", Style: 1},
+		},
+	})
+	if err != nil {
+		return c.Status(500).JSON(fiber.Map{
+			"status":  "error",
+			"message": "Failed to create header style",
+			"error":   err.Error(),
+		})
+	}
+
+	// Style pour les en-têtes de colonnes
+	columnHeaderStyle, err := f.NewStyle(&excelize.Style{
+		Font: &excelize.Font{
+			Bold:   true,
+			Size:   12,
+			Color:  "FFFFFF",
+			Family: "Calibri",
+		},
+		Fill: excelize.Fill{
+			Type:    "pattern",
+			Color:   []string{"#4F81BD"},
+			Pattern: 1,
+		},
+		Alignment: &excelize.Alignment{
+			Horizontal: "center",
+			Vertical:   "center",
+		},
+		Border: []excelize.Border{
+			{Type: "left", Color: "000000", Style: 1},
+			{Type: "top", Color: "000000", Style: 1},
+			{Type: "bottom", Color: "000000", Style: 1},
+			{Type: "right", Color: "000000", Style: 1},
+		},
+	})
+	if err != nil {
+		return c.Status(500).JSON(fiber.Map{
+			"status":  "error",
+			"message": "Failed to create column header style",
+			"error":   err.Error(),
+		})
+	}
+
+	// Style pour les cellules de données
+	dataStyle, err := f.NewStyle(&excelize.Style{
+		Font: &excelize.Font{
+			Size:   11,
+			Family: "Calibri",
+		},
+		Alignment: &excelize.Alignment{
+			Horizontal: "left",
+			Vertical:   "center",
+			WrapText:   true,
+		},
+		Border: []excelize.Border{
+			{Type: "left", Color: "CCCCCC", Style: 1},
+			{Type: "top", Color: "CCCCCC", Style: 1},
+			{Type: "bottom", Color: "CCCCCC", Style: 1},
+			{Type: "right", Color: "CCCCCC", Style: 1},
+		},
+	})
+	if err != nil {
+		return c.Status(500).JSON(fiber.Map{
+			"status":  "error",
+			"message": "Failed to create data style",
+			"error":   err.Error(),
+		})
+	}
+
+	// Style pour les cellules numériques
+	numberStyle, err := f.NewStyle(&excelize.Style{
+		Font: &excelize.Font{
+			Size:   11,
+			Family: "Calibri",
+		},
+		Alignment: &excelize.Alignment{
+			Horizontal: "center",
+			Vertical:   "center",
+		},
+		Border: []excelize.Border{
+			{Type: "left", Color: "CCCCCC", Style: 1},
+			{Type: "top", Color: "CCCCCC", Style: 1},
+			{Type: "bottom", Color: "CCCCCC", Style: 1},
+			{Type: "right", Color: "CCCCCC", Style: 1},
+		},
+		NumFmt: 1, // Format numérique sans décimales
+	})
+	if err != nil {
+		return c.Status(500).JSON(fiber.Map{
+			"status":  "error",
+			"message": "Failed to create number style",
+			"error":   err.Error(),
+		})
+	}
+
+	// Style pour les cellules de date
+	dateStyle, err := f.NewStyle(&excelize.Style{
+		Font: &excelize.Font{
+			Size:   11,
+			Family: "Calibri",
+		},
+		Alignment: &excelize.Alignment{
+			Horizontal: "center",
+			Vertical:   "center",
+		},
+		Border: []excelize.Border{
+			{Type: "left", Color: "CCCCCC", Style: 1},
+			{Type: "top", Color: "CCCCCC", Style: 1},
+			{Type: "bottom", Color: "CCCCCC", Style: 1},
+			{Type: "right", Color: "CCCCCC", Style: 1},
+		},
+		NumFmt: 14, // Format de date mm/dd/yyyy
+	})
+	if err != nil {
+		return c.Status(500).JSON(fiber.Map{
+			"status":  "error",
+			"message": "Failed to create date style",
+			"error":   err.Error(),
+		})
+	}
+
+	// Style pour les cellules booléennes
+	booleanStyle, err := f.NewStyle(&excelize.Style{
+		Font: &excelize.Font{
+			Size:   11,
+			Family: "Calibri",
+			Bold:   true,
+		},
+		Alignment: &excelize.Alignment{
+			Horizontal: "center",
+			Vertical:   "center",
+		},
+		Border: []excelize.Border{
+			{Type: "left", Color: "CCCCCC", Style: 1},
+			{Type: "top", Color: "CCCCCC", Style: 1},
+			{Type: "bottom", Color: "CCCCCC", Style: 1},
+			{Type: "right", Color: "CCCCCC", Style: 1},
+		},
+	})
+	if err != nil {
+		return c.Status(500).JSON(fiber.Map{
+			"status":  "error",
+			"message": "Failed to create boolean style",
+			"error":   err.Error(),
+		})
+	}
+
+	// Style pour le score de confiance
+	scoreStyle, err := f.NewStyle(&excelize.Style{
+		Font: &excelize.Font{
+			Size:   11,
+			Family: "Calibri",
+		},
+		Alignment: &excelize.Alignment{
+			Horizontal: "center",
+			Vertical:   "center",
+		},
+		Border: []excelize.Border{
+			{Type: "left", Color: "CCCCCC", Style: 1},
+			{Type: "top", Color: "CCCCCC", Style: 1},
+			{Type: "bottom", Color: "CCCCCC", Style: 1},
+			{Type: "right", Color: "CCCCCC", Style: 1},
+		},
+		NumFmt: 4, // Format avec 2 décimales
+	})
+	if err != nil {
+		return c.Status(500).JSON(fiber.Map{
+			"status":  "error",
+			"message": "Failed to create score style",
+			"error":   err.Error(),
+		})
+	}
+
+	// ===== EN-TÊTE PRINCIPAL =====
+	currentTime := time.Now().Format("02/01/2006 15:04")
+	mainHeader := fmt.Sprintf("RAPPORT D'EXPORT DES BIOMÉTRIES - %s", currentTime)
+	f.SetCellValue("Biométries", "A1", mainHeader)
+	f.MergeCell("Biométries", "A1", "T1")
+	f.SetCellStyle("Biométries", "A1", "T1", headerStyle)
+	f.SetRowHeight("Biométries", 1, 30)
+
+	// ===== INFORMATIONS DE FILTRE =====
+	row := 3
+	filterApplied := false
+	if migrantUUID != "" || typeBiometrie != "" || qualiteDonnee != "" || verifie != "" || chiffre != "" || dispositifCapture != "" {
+		f.SetCellValue("Biométries", "A2", "Filtres appliqués:")
+		f.SetCellStyle("Biométries", "A2", "A2", columnHeaderStyle)
+		filterApplied = true
+
+		if migrantUUID != "" {
+			f.SetCellValue("Biométries", fmt.Sprintf("A%d", row), fmt.Sprintf("Migrant UUID: %s", migrantUUID))
+			row++
+		}
+		if typeBiometrie != "" {
+			f.SetCellValue("Biométries", fmt.Sprintf("A%d", row), fmt.Sprintf("Type de biométrie: %s", typeBiometrie))
+			row++
+		}
+		if qualiteDonnee != "" {
+			f.SetCellValue("Biométries", fmt.Sprintf("A%d", row), fmt.Sprintf("Qualité des données: %s", qualiteDonnee))
+			row++
+		}
+		if verifie != "" {
+			f.SetCellValue("Biométries", fmt.Sprintf("A%d", row), fmt.Sprintf("Vérifié: %s", verifie))
+			row++
+		}
+		if chiffre != "" {
+			f.SetCellValue("Biométries", fmt.Sprintf("A%d", row), fmt.Sprintf("Chiffré: %s", chiffre))
+			row++
+		}
+		if dispositifCapture != "" {
+			f.SetCellValue("Biométries", fmt.Sprintf("A%d", row), fmt.Sprintf("Dispositif de capture: %s", dispositifCapture))
+			row++
+		}
+		row++ // Ligne vide
+	}
+
+	if !filterApplied {
+		row = 2 // Pas de filtres, commencer plus haut
+	}
+
+	// ===== EN-TÊTES DE COLONNES =====
+	headers := []string{
+		"UUID",
+		"Migrant UUID",
+		"Nom du migrant",
+		"Prénom du migrant",
+		"Type de biométrie",
+		"Index du doigt",
+		"Qualité des données",
+		"Algorithme d'encodage",
+		"Taille fichier (bytes)",
+		"Date de capture",
+		"Dispositif de capture",
+		"Résolution de capture",
+		"Opérateur de capture",
+		"Chiffré",
+		"Vérifié",
+		"Date de vérification",
+		"Score de confiance",
+		"Date de création",
+		"Date de MAJ",
+		"Données biométriques (tronquées)",
+	}
+
+	// Écrire les en-têtes
+	for i, header := range headers {
+		cell := fmt.Sprintf("%c%d", 'A'+i, row)
+		f.SetCellValue("Biométries", cell, header)
+		f.SetCellStyle("Biométries", cell, cell, columnHeaderStyle)
+	}
+	f.SetRowHeight("Biométries", row, 25)
+
+	// ===== DONNÉES =====
+	for i, biometrie := range biometries {
+		dataRow := row + 1 + i
+
+		// UUID
+		cell := fmt.Sprintf("A%d", dataRow)
+		f.SetCellValue("Biométries", cell, biometrie.UUID)
+		f.SetCellStyle("Biométries", cell, cell, dataStyle)
+
+		// Migrant UUID
+		cell = fmt.Sprintf("B%d", dataRow)
+		f.SetCellValue("Biométries", cell, biometrie.MigrantUUID)
+		f.SetCellStyle("Biométries", cell, cell, dataStyle)
+
+		// Nom du migrant
+		cell = fmt.Sprintf("C%d", dataRow)
+		if biometrie.Migrant.Nom != "" {
+			f.SetCellValue("Biométries", cell, biometrie.Migrant.Nom)
+		} else {
+			f.SetCellValue("Biométries", cell, "N/A")
+		}
+		f.SetCellStyle("Biométries", cell, cell, dataStyle)
+
+		// Prénom du migrant
+		cell = fmt.Sprintf("D%d", dataRow)
+		if biometrie.Migrant.Prenom != "" {
+			f.SetCellValue("Biométries", cell, biometrie.Migrant.Prenom)
+		} else {
+			f.SetCellValue("Biométries", cell, "N/A")
+		}
+		f.SetCellStyle("Biométries", cell, cell, dataStyle)
+
+		// Type de biométrie
+		cell = fmt.Sprintf("E%d", dataRow)
+		f.SetCellValue("Biométries", cell, biometrie.TypeBiometrie)
+		f.SetCellStyle("Biométries", cell, cell, dataStyle)
+
+		// Index du doigt
+		cell = fmt.Sprintf("F%d", dataRow)
+		if biometrie.IndexDoigt != nil {
+			f.SetCellValue("Biométries", cell, *biometrie.IndexDoigt)
+		} else {
+			f.SetCellValue("Biométries", cell, "")
+		}
+		f.SetCellStyle("Biométries", cell, cell, numberStyle)
+
+		// Qualité des données
+		cell = fmt.Sprintf("G%d", dataRow)
+		f.SetCellValue("Biométries", cell, biometrie.QualiteDonnee)
+		f.SetCellStyle("Biométries", cell, cell, dataStyle)
+
+		// Algorithme d'encodage
+		cell = fmt.Sprintf("H%d", dataRow)
+		f.SetCellValue("Biométries", cell, biometrie.AlgorithmeEncodage)
+		f.SetCellStyle("Biométries", cell, cell, dataStyle)
+
+		// Taille fichier
+		cell = fmt.Sprintf("I%d", dataRow)
+		if biometrie.TailleFichier > 0 {
+			f.SetCellValue("Biométries", cell, biometrie.TailleFichier)
+		} else {
+			f.SetCellValue("Biométries", cell, "")
+		}
+		f.SetCellStyle("Biométries", cell, cell, numberStyle)
+
+		// Date de capture
+		cell = fmt.Sprintf("J%d", dataRow)
+		f.SetCellValue("Biométries", cell, biometrie.DateCapture.Format("02/01/2006 15:04"))
+		f.SetCellStyle("Biométries", cell, cell, dateStyle)
+
+		// Dispositif de capture
+		cell = fmt.Sprintf("K%d", dataRow)
+		f.SetCellValue("Biométries", cell, biometrie.DisposifCapture)
+		f.SetCellStyle("Biométries", cell, cell, dataStyle)
+
+		// Résolution de capture
+		cell = fmt.Sprintf("L%d", dataRow)
+		f.SetCellValue("Biométries", cell, biometrie.ResolutionCapture)
+		f.SetCellStyle("Biométries", cell, cell, dataStyle)
+
+		// Opérateur de capture
+		cell = fmt.Sprintf("M%d", dataRow)
+		f.SetCellValue("Biométries", cell, biometrie.OperateurCapture)
+		f.SetCellStyle("Biométries", cell, cell, dataStyle)
+
+		// Chiffré
+		cell = fmt.Sprintf("N%d", dataRow)
+		if biometrie.Chiffre {
+			f.SetCellValue("Biométries", cell, "OUI")
+		} else {
+			f.SetCellValue("Biométries", cell, "NON")
+		}
+		f.SetCellStyle("Biométries", cell, cell, booleanStyle)
+
+		// Vérifié
+		cell = fmt.Sprintf("O%d", dataRow)
+		if biometrie.Verifie {
+			f.SetCellValue("Biométries", cell, "OUI")
+		} else {
+			f.SetCellValue("Biométries", cell, "NON")
+		}
+		f.SetCellStyle("Biométries", cell, cell, booleanStyle)
+
+		// Date de vérification
+		cell = fmt.Sprintf("P%d", dataRow)
+		if biometrie.DateVerification != nil {
+			f.SetCellValue("Biométries", cell, biometrie.DateVerification.Format("02/01/2006 15:04"))
+		} else {
+			f.SetCellValue("Biométries", cell, "")
+		}
+		f.SetCellStyle("Biométries", cell, cell, dateStyle)
+
+		// Score de confiance
+		cell = fmt.Sprintf("Q%d", dataRow)
+		if biometrie.ScoreConfiance != nil {
+			f.SetCellValue("Biométries", cell, *biometrie.ScoreConfiance)
+		} else {
+			f.SetCellValue("Biométries", cell, "")
+		}
+		f.SetCellStyle("Biométries", cell, cell, scoreStyle)
+
+		// Date de création
+		cell = fmt.Sprintf("R%d", dataRow)
+		f.SetCellValue("Biométries", cell, biometrie.CreatedAt.Format("02/01/2006 15:04"))
+		f.SetCellStyle("Biométries", cell, cell, dateStyle)
+
+		// Date de MAJ
+		cell = fmt.Sprintf("S%d", dataRow)
+		f.SetCellValue("Biométries", cell, biometrie.UpdatedAt.Format("02/01/2006 15:04"))
+		f.SetCellStyle("Biométries", cell, cell, dateStyle)
+
+		// Données biométriques (tronquées pour sécurité)
+		cell = fmt.Sprintf("T%d", dataRow)
+		if len(biometrie.DonneesBiometriques) > 50 {
+			f.SetCellValue("Biométries", cell, biometrie.DonneesBiometriques[:50]+"...")
+		} else {
+			f.SetCellValue("Biométries", cell, biometrie.DonneesBiometriques)
+		}
+		f.SetCellStyle("Biométries", cell, cell, dataStyle)
+
+		// Définir la hauteur de ligne
+		f.SetRowHeight("Biométries", dataRow, 20)
+	}
+
+	// ===== AJUSTEMENT DE LA LARGEUR DES COLONNES =====
+	columnWidths := []float64{
+		25, // UUID
+		25, // Migrant UUID
+		15, // Nom
+		15, // Prénom
+		20, // Type biométrie
+		8,  // Index doigt
+		15, // Qualité
+		20, // Algorithme
+		12, // Taille fichier
+		18, // Date capture
+		20, // Dispositif capture
+		15, // Résolution
+		20, // Opérateur
+		8,  // Chiffré
+		8,  // Vérifié
+		18, // Date vérification
+		12, // Score confiance
+		18, // Date création
+		18, // Date MAJ
+		30, // Données biométriques
+	}
+
+	columns := []string{"A", "B", "C", "D", "E", "F", "G", "H", "I", "J", "K", "L", "M", "N", "O", "P", "Q", "R", "S", "T"}
+	for i, width := range columnWidths {
+		if i < len(columns) {
+			f.SetColWidth("Biométries", columns[i], columns[i], width)
+		}
+	}
+
+	// ===== AJOUTER UNE FEUILLE DE STATISTIQUES =====
+	_, err = f.NewSheet("Statistiques")
+	if err == nil {
+		// Calculer les statistiques
+		totalRecords := len(biometries)
+
+		// Compter par type de biométrie
+		typeCount := make(map[string]int)
+		qualiteCount := make(map[string]int)
+		dispositifCount := make(map[string]int)
+		verifiedCount := 0
+		encryptedCount := 0
+		totalScore := 0.0
+		scoreCount := 0
+
+		for _, bio := range biometries {
+			typeCount[bio.TypeBiometrie]++
+			qualiteCount[bio.QualiteDonnee]++
+			if bio.DisposifCapture != "" {
+				dispositifCount[bio.DisposifCapture]++
+			}
+			if bio.Verifie {
+				verifiedCount++
+			}
+			if bio.Chiffre {
+				encryptedCount++
+			}
+			if bio.ScoreConfiance != nil {
+				totalScore += *bio.ScoreConfiance
+				scoreCount++
+			}
+		}
+
+		avgScore := 0.0
+		if scoreCount > 0 {
+			avgScore = totalScore / float64(scoreCount)
+		}
+
+		// En-tête de la feuille statistiques
+		f.SetCellValue("Statistiques", "A1", "STATISTIQUES DES BIOMÉTRIES")
+		f.MergeCell("Statistiques", "A1", "C1")
+		f.SetCellStyle("Statistiques", "A1", "C1", headerStyle)
+
+		row = 3
+		f.SetCellValue("Statistiques", fmt.Sprintf("A%d", row), "Total des enregistrements:")
+		f.SetCellValue("Statistiques", fmt.Sprintf("B%d", row), totalRecords)
+		row += 2
+
+		// Statistiques générales
+		f.SetCellValue("Statistiques", fmt.Sprintf("A%d", row), "Biométries vérifiées:")
+		f.SetCellValue("Statistiques", fmt.Sprintf("B%d", row), verifiedCount)
+		row++
+		f.SetCellValue("Statistiques", fmt.Sprintf("A%d", row), "Biométries chiffrées:")
+		f.SetCellValue("Statistiques", fmt.Sprintf("B%d", row), encryptedCount)
+		row++
+		f.SetCellValue("Statistiques", fmt.Sprintf("A%d", row), "Score de confiance moyen:")
+		f.SetCellValue("Statistiques", fmt.Sprintf("B%d", row), fmt.Sprintf("%.2f", avgScore))
+		row += 2
+
+		// Par type de biométrie
+		f.SetCellValue("Statistiques", fmt.Sprintf("A%d", row), "Par type de biométrie:")
+		f.SetCellStyle("Statistiques", fmt.Sprintf("A%d", row), fmt.Sprintf("A%d", row), columnHeaderStyle)
+		row++
+		for typeBio, count := range typeCount {
+			f.SetCellValue("Statistiques", fmt.Sprintf("A%d", row), typeBio)
+			f.SetCellValue("Statistiques", fmt.Sprintf("B%d", row), count)
+			row++
+		}
+		row++
+
+		// Par qualité des données
+		f.SetCellValue("Statistiques", fmt.Sprintf("A%d", row), "Par qualité des données:")
+		f.SetCellStyle("Statistiques", fmt.Sprintf("A%d", row), fmt.Sprintf("A%d", row), columnHeaderStyle)
+		row++
+		for qualite, count := range qualiteCount {
+			f.SetCellValue("Statistiques", fmt.Sprintf("A%d", row), qualite)
+			f.SetCellValue("Statistiques", fmt.Sprintf("B%d", row), count)
+			row++
+		}
+		row++
+
+		// Top 5 dispositifs de capture
+		f.SetCellValue("Statistiques", fmt.Sprintf("A%d", row), "Top 5 dispositifs de capture:")
+		f.SetCellStyle("Statistiques", fmt.Sprintf("A%d", row), fmt.Sprintf("A%d", row), columnHeaderStyle)
+		row++
+		count := 0
+		for dispositif, nb := range dispositifCount {
+			if count >= 5 {
+				break
+			}
+			f.SetCellValue("Statistiques", fmt.Sprintf("A%d", row), dispositif)
+			f.SetCellValue("Statistiques", fmt.Sprintf("B%d", row), nb)
+			row++
+			count++
+		}
+
+		f.SetColWidth("Statistiques", "A", "A", 30)
+		f.SetColWidth("Statistiques", "B", "B", 15)
+	}
+
+	// ===== GÉNÉRATION DU FICHIER =====
+	filename := fmt.Sprintf("biometries_export_%s.xlsx", time.Now().Format("20060102_150405"))
+
+	// Sauvegarder en mémoire
+	buffer, err := f.WriteToBuffer()
+	if err != nil {
+		return c.Status(500).JSON(fiber.Map{
+			"status":  "error",
+			"message": "Failed to generate Excel file",
+			"error":   err.Error(),
+		})
+	}
+
+	// Configurer les en-têtes de réponse pour le téléchargement
+	c.Set("Content-Type", "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
+	c.Set("Content-Disposition", fmt.Sprintf("attachment; filename=%s", filename))
+	c.Set("Content-Length", strconv.Itoa(len(buffer.Bytes())))
+
+	return c.Send(buffer.Bytes())
 }
