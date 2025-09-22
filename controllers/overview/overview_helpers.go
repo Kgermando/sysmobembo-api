@@ -42,7 +42,8 @@ func getVolumeLocalisationIndicateurs(periode int, province string) VolumeLocali
 		Joins("JOIN migrants m ON g.migrant_uuid = m.uuid").
 		Where("g.type_mouvement = ? AND g.created_at >= ? AND m.actif = ?", "residence_permanente", dateDebut, true)
 	if province != "" {
-		geoQuery = geoQuery.Where("g.ville = ? OR g.pays LIKE ?", province, "%"+province+"%")
+		// Utiliser à la fois g.ville (ville de géolocalisation) ET m.ville_actuelle (ville du migrant)
+		geoQuery = geoQuery.Where("(g.ville = ? OR m.ville_actuelle = ?)", province, province)
 	}
 	geoQuery.Count(&personnesRetournees)
 
@@ -129,7 +130,8 @@ func getEvolutionMensuelle(periode int, province string) []EvolutionTemporelleSt
 			Where("g.type_mouvement = ? AND g.created_at >= ? AND g.created_at < ? AND m.actif = ?",
 				"residence_permanente", debutMois, finMois, true)
 		if province != "" {
-			geoQuery = geoQuery.Where("g.ville = ?", province)
+			// Filtrer par la ville de géolocalisation OU la ville actuelle du migrant
+			geoQuery = geoQuery.Where("(g.ville = ? OR m.ville_actuelle = ?)", province, province)
 		}
 		geoQuery.Count(&retours)
 
@@ -246,9 +248,9 @@ func getVulnerabiliteBesoinsIndicateurs(periode int, province string) Vulnerabil
 	var deplacesHorsSites int64
 	horsQuery := db.Table("geolocalisations g").
 		Joins("JOIN migrants m ON g.migrant_uuid = m.uuid").
-		Where("g.type_hebergement != ? AND g.created_at >= ? AND m.actif = ?", "site_officiel", dateDebut, true)
+		Where("g.type_localisation != ? AND g.created_at >= ? AND m.actif = ?", "centre_accueil", dateDebut, true)
 	if province != "" {
-		horsQuery = horsQuery.Where("g.ville = ?", province)
+		horsQuery = horsQuery.Where("(g.ville = ? OR m.ville_actuelle = ?)", province, province)
 	}
 	horsQuery.Count(&deplacesHorsSites)
 
@@ -257,7 +259,7 @@ func getVulnerabiliteBesoinsIndicateurs(periode int, province string) Vulnerabil
 		Joins("JOIN migrants m ON g.migrant_uuid = m.uuid").
 		Where("g.created_at >= ? AND m.actif = ?", dateDebut, true)
 	if province != "" {
-		structuresQuery = structuresQuery.Where("g.ville = ?", province)
+		structuresQuery = structuresQuery.Where("(g.ville = ? OR m.ville_actuelle = ?)", province, province)
 	}
 	structuresQuery.Count(&totalDansStructures)
 
@@ -282,6 +284,7 @@ func getProfilDemographique(periode int, province string) ProfilDemographiqueSta
 	var femmes, enfants, ages int64
 	var ageTotal float64
 
+	// Requête de base avec les filtres de période et province
 	baseQuery := db.Model(&models.Migrant{}).Where("actif = ? AND created_at >= ?", true, dateDebut)
 	if province != "" {
 		baseQuery = baseQuery.Where("ville_actuelle = ?", province)
@@ -290,23 +293,36 @@ func getProfilDemographique(periode int, province string) ProfilDemographiqueSta
 	// Total des migrants
 	baseQuery.Count(&totalMigrants)
 
-	// Compter les femmes
-	femmeQuery := baseQuery.Where("sexe = ?", "F")
+	// Compter les femmes - Créer une nouvelle requête basée sur baseQuery
+	femmeQuery := db.Model(&models.Migrant{}).Where("actif = ? AND created_at >= ? AND sexe = ?", true, dateDebut, "F")
+	if province != "" {
+		femmeQuery = femmeQuery.Where("ville_actuelle = ?", province)
+	}
 	femmeQuery.Count(&femmes)
 
 	// Compter les enfants (moins de 18 ans)
 	dateMineure := time.Now().AddDate(-18, 0, 0)
-	enfantQuery := baseQuery.Where("date_naissance > ?", dateMineure)
+	enfantQuery := db.Model(&models.Migrant{}).Where("actif = ? AND created_at >= ? AND date_naissance > ?", true, dateDebut, dateMineure)
+	if province != "" {
+		enfantQuery = enfantQuery.Where("ville_actuelle = ?", province)
+	}
 	enfantQuery.Count(&enfants)
 
 	// Compter les personnes âgées (plus de 65 ans)
 	dateAgee := time.Now().AddDate(-65, 0, 0)
-	ageQuery := baseQuery.Where("date_naissance < ?", dateAgee)
+	ageQuery := db.Model(&models.Migrant{}).Where("actif = ? AND created_at >= ? AND date_naissance < ?", true, dateDebut, dateAgee)
+	if province != "" {
+		ageQuery = ageQuery.Where("ville_actuelle = ?", province)
+	}
 	ageQuery.Count(&ages)
 
-	// Calculer l'âge moyen
+	// Calculer l'âge moyen - Utiliser la requête de base correcte
 	var migrants []models.Migrant
-	baseQuery.Select("date_naissance").Find(&migrants)
+	migrantsQuery := db.Model(&models.Migrant{}).Where("actif = ? AND created_at >= ?", true, dateDebut)
+	if province != "" {
+		migrantsQuery = migrantsQuery.Where("ville_actuelle = ?", province)
+	}
+	migrantsQuery.Select("date_naissance").Find(&migrants)
 
 	if len(migrants) > 0 {
 		for _, migrant := range migrants {
@@ -332,10 +348,10 @@ func getProfilDemographique(periode int, province string) ProfilDemographiqueSta
 		PourcentageAges:    pourcentageAges,
 		AgeMoyen:           ageTotal,
 	}
-}
-
-// ⚠️ INDICATEURS DYNAMIQUES ET D'ALERTE
+} // ⚠️ INDICATEURS DYNAMIQUES ET D'ALERTE
 func getDynamiquesAlerteIndicateurs(periode int, province string) DynamiquesAlerteIndicateurs {
+	db := database.DB
+
 	// Zones à haut risque
 	zonesRisque := getZonesHautRisque(periode, province)
 
@@ -347,7 +363,6 @@ func getDynamiquesAlerteIndicateurs(periode int, province string) DynamiquesAler
 
 	// Mouvements massifs récents (30 derniers jours)
 	var mouvementsMassifs int64
-	db := database.DB
 	date30Jours := time.Now().AddDate(0, 0, -30)
 	massifQuery := db.Model(&models.Migrant{}).
 		Where("actif = ? AND created_at >= ?", true, date30Jours)
@@ -430,7 +445,8 @@ func getTendancesRetour(periode int, province string) []TendanceRetourStats {
 		Limit(10)
 
 	if province != "" {
-		query = query.Where("g.ville = ?", province)
+		// Filtrer sur la zone de retour (géolocalisation) OU ville actuelle du migrant
+		query = query.Where("(g.ville = ? OR m.ville_actuelle = ?)", province, province)
 	}
 
 	query.Scan(&results)
