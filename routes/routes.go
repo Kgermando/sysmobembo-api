@@ -9,6 +9,7 @@ import (
 	"github.com/kgermando/sysmobembo-api/controllers/geolocation"
 	"github.com/kgermando/sysmobembo-api/controllers/migrants"
 	motifDeplacement "github.com/kgermando/sysmobembo-api/controllers/motifDeplacement"
+	"github.com/kgermando/sysmobembo-api/controllers/overview"
 	"github.com/kgermando/sysmobembo-api/controllers/users"
 
 	"github.com/gofiber/fiber/v2/middleware/logger"
@@ -146,5 +147,11 @@ func Setup(app *fiber.App) {
 	deplacementDash.Get("/alertes-temps-reel", dashboard.AlertesTempsReel)
 	deplacementDash.Get("/repartition-geo", dashboard.RepartitionGeographiqueDetaillee)
 	deplacementDash.Get("/causes", dashboard.AnalyseCausesDetaillees)
+
+	// Dashboard Overview - APIs spécifiques pour le composant Angular overview
+	overviewDash := dash.Group("/overview")
+	overviewDash.Get("/indicateurs", overview.GetIndicateursGeneraux)
+	overviewDash.Get("/alertes", overview.GetAlertesTempsReel)
+	overviewDash.Get("/repartition", overview.GetRepartitionGeographique)
 
 }
