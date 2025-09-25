@@ -37,7 +37,7 @@ func GetPaginatedMotifDeplacements(c *fiber.Ctx) error {
 	var totalRecords int64
 
 	query := db.Model(&models.MotifDeplacement{}).
-		Preload("Migrant")
+	Preload("Migrant")
 
 	// Filtrer par migrant si spécifié
 	if migrantUUID != "" {
