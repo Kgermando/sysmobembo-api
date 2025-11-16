@@ -907,8 +907,8 @@ func ExportAlertsToExcel(c *fiber.Ctx) error {
 
 		// Nom du migrant
 		cell = fmt.Sprintf("C%d", dataRow)
-		if alert.Migrant.Nom != "" {
-			f.SetCellValue("Alertes", cell, alert.Migrant.Nom)
+		if alert.Migrant.Identite.UUID != "" {
+			f.SetCellValue("Alertes", cell, alert.Migrant.Identite.Nom)
 		} else {
 			f.SetCellValue("Alertes", cell, "N/A")
 		}
@@ -916,8 +916,8 @@ func ExportAlertsToExcel(c *fiber.Ctx) error {
 
 		// Prénom du migrant
 		cell = fmt.Sprintf("D%d", dataRow)
-		if alert.Migrant.Prenom != "" {
-			f.SetCellValue("Alertes", cell, alert.Migrant.Prenom)
+		if alert.Migrant.Identite.UUID != "" {
+			f.SetCellValue("Alertes", cell, alert.Migrant.Identite.Prenom)
 		} else {
 			f.SetCellValue("Alertes", cell, "N/A")
 		}

@@ -723,21 +723,21 @@ func ExportGeolocalisationsToExcel(c *fiber.Ctx) error {
 
 		// Nom du migrant
 		cell = fmt.Sprintf("D%d", dataRow)
-		if geo.Migrant.Nom != "" {
-			f.SetCellValue("Géolocalisations", cell, geo.Migrant.Nom)
+		if geo.Migrant.Identite.UUID != "" {
+			f.SetCellValue("Éolocalisations", cell, geo.Migrant.Identite.Nom)
 		} else {
-			f.SetCellValue("Géolocalisations", cell, "N/A")
+			f.SetCellValue("Éolocalisations", cell, "N/A")
 		}
-		f.SetCellStyle("Géolocalisations", cell, cell, dataStyle)
+		f.SetCellStyle("Éolocalisations", cell, cell, dataStyle)
 
 		// Prénom du migrant
 		cell = fmt.Sprintf("E%d", dataRow)
-		if geo.Migrant.Prenom != "" {
-			f.SetCellValue("Géolocalisations", cell, geo.Migrant.Prenom)
+		if geo.Migrant.Identite.UUID != "" {
+			f.SetCellValue("Éolocalisations", cell, geo.Migrant.Identite.Prenom)
 		} else {
-			f.SetCellValue("Géolocalisations", cell, "N/A")
+			f.SetCellValue("Éolocalisations", cell, "N/A")
 		}
-		f.SetCellStyle("Géolocalisations", cell, cell, dataStyle)
+		f.SetCellStyle("Éolocalisations", cell, cell, dataStyle)
 
 		// Latitude
 		cell = fmt.Sprintf("F%d", dataRow)

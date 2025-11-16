@@ -37,7 +37,7 @@ func GetPaginatedMotifDeplacements(c *fiber.Ctx) error {
 	var totalRecords int64
 
 	query := db.Model(&models.MotifDeplacement{}).
-	Preload("Migrant")
+		Preload("Migrant")
 
 	// Filtrer par migrant si spécifié
 	if migrantUUID != "" {
@@ -718,18 +718,18 @@ func ExportMotifDeplacementsToExcel(c *fiber.Ctx) error {
 		f.SetCellStyle("Motifs de Déplacement", cell, cell, dataStyle)
 
 		// Nom du migrant
-		cell = fmt.Sprintf("C%d", dataRow)
-		if motif.Migrant.Nom != "" {
-			f.SetCellValue("Motifs de Déplacement", cell, motif.Migrant.Nom)
+		cell = fmt.Sprintf("D%d", dataRow)
+		if motif.Migrant.Identite.UUID != "" {
+			f.SetCellValue("Motifs de Déplacement", cell, motif.Migrant.Identite.Nom)
 		} else {
 			f.SetCellValue("Motifs de Déplacement", cell, "N/A")
 		}
 		f.SetCellStyle("Motifs de Déplacement", cell, cell, dataStyle)
 
 		// Prénom du migrant
-		cell = fmt.Sprintf("D%d", dataRow)
-		if motif.Migrant.Prenom != "" {
-			f.SetCellValue("Motifs de Déplacement", cell, motif.Migrant.Prenom)
+		cell = fmt.Sprintf("E%d", dataRow)
+		if motif.Migrant.Identite.UUID != "" {
+			f.SetCellValue("Motifs de Déplacement", cell, motif.Migrant.Identite.Prenom)
 		} else {
 			f.SetCellValue("Motifs de Déplacement", cell, "N/A")
 		}

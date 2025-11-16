@@ -15,20 +15,9 @@ type Migrant struct {
 
 	NumeroIdentifiant string `json:"numero_identifiant" gorm:"unique;not null" validate:"required"`
 
-	// Informations personnelles
-	Nom           string    `json:"nom" gorm:"not null" validate:"required"`
-	Prenom        string    `json:"prenom" gorm:"not null" validate:"required"`
-	DateNaissance time.Time `json:"date_naissance" validate:"required"`
-	LieuNaissance string    `json:"lieu_naissance" validate:"required"`
-	Sexe          string    `json:"sexe" gorm:"type:varchar(1)" validate:"required,oneof=M F"`
-	Nationalite   string    `json:"nationalite" validate:"required"`
-
-	// Documents d'identité
-	TypeDocument      string     `json:"type_document" validate:"required,oneof=passport carte_identite permis_conduire"`
-	NumeroDocument    string     `json:"numero_document" gorm:"unique" validate:"required"`
-	DateEmissionDoc   *time.Time `json:"date_emission_document"`
-	DateExpirationDoc *time.Time `json:"date_expiration_document"`
-	AutoriteEmission  string     `json:"autorite_emission"`
+	// Relation avec Identite
+	IdentiteUUID string   `json:"identite_uuid" gorm:"not null" validate:"required"`
+	Identite     Identite `json:"identite" gorm:"foreignKey:IdentiteUUID;constraint:OnDelete:CASCADE"`
 
 	// Informations de contact
 	Telephone       string `json:"telephone"`
@@ -47,7 +36,6 @@ type Migrant struct {
 	StatutMigratoire string     `json:"statut_migratoire" validate:"required,oneof=regulier irregulier demandeur_asile refugie"`
 	DateEntree       *time.Time `json:"date_entree"`
 	PointEntree      string     `json:"point_entree"`
-	PaysOrigine      string     `json:"pays_origine" validate:"required"`
 	PaysDestination  string     `json:"pays_destination"`
 
 	// Relations avec autres modèles

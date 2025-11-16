@@ -25,11 +25,12 @@ func getVolumeLocalisationIndicateurs(periode int, province string) VolumeLocali
 
 	// Nombre de déplacés internes (migrants qui ont changé de province/ville dans le même pays)
 	var deplacesInternes int64
-	deplacesQuery := db.Model(&models.Migrant{}).
-		Where("actif = ? AND created_at >= ? AND pays_origine = pays_actuel AND lieu_naissance != ville_actuelle",
+	deplacesQuery := db.Table("migrants m").
+		Joins("JOIN identites i ON m.identite_uuid = i.uuid").
+		Where("m.actif = ? AND m.created_at >= ? AND i.nationalite = m.pays_actuel AND i.lieu_naissance != m.ville_actuelle",
 			true, dateDebut)
 	if province != "" {
-		deplacesQuery = deplacesQuery.Where("ville_actuelle = ? OR pays_actuel LIKE ?", province, "%"+province+"%")
+		deplacesQuery = deplacesQuery.Where("m.ville_actuelle = ? OR m.pays_actuel LIKE ?", province, "%"+province+"%")
 	}
 	deplacesQuery.Count(&deplacesInternes)
 
@@ -293,26 +294,32 @@ func getProfilDemographique(periode int, province string) ProfilDemographiqueSta
 	// Total des migrants
 	baseQuery.Count(&totalMigrants)
 
-	// Compter les femmes - Créer une nouvelle requête basée sur baseQuery
-	femmeQuery := db.Model(&models.Migrant{}).Where("actif = ? AND created_at >= ? AND sexe = ?", true, dateDebut, "F")
+	// Compter les femmes - Utiliser JOIN avec identites
+	femmeQuery := db.Table("migrants m").
+		Joins("JOIN identites i ON m.identite_uuid = i.uuid").
+		Where("m.actif = ? AND m.created_at >= ? AND i.sexe = ?", true, dateDebut, "F")
 	if province != "" {
-		femmeQuery = femmeQuery.Where("ville_actuelle = ?", province)
+		femmeQuery = femmeQuery.Where("m.ville_actuelle = ?", province)
 	}
 	femmeQuery.Count(&femmes)
 
 	// Compter les enfants (moins de 18 ans)
 	dateMineure := time.Now().AddDate(-18, 0, 0)
-	enfantQuery := db.Model(&models.Migrant{}).Where("actif = ? AND created_at >= ? AND date_naissance > ?", true, dateDebut, dateMineure)
+	enfantQuery := db.Table("migrants m").
+		Joins("JOIN identites i ON m.identite_uuid = i.uuid").
+		Where("m.actif = ? AND m.created_at >= ? AND i.date_naissance > ?", true, dateDebut, dateMineure)
 	if province != "" {
-		enfantQuery = enfantQuery.Where("ville_actuelle = ?", province)
+		enfantQuery = enfantQuery.Where("m.ville_actuelle = ?", province)
 	}
 	enfantQuery.Count(&enfants)
 
 	// Compter les personnes âgées (plus de 65 ans)
 	dateAgee := time.Now().AddDate(-65, 0, 0)
-	ageQuery := db.Model(&models.Migrant{}).Where("actif = ? AND created_at >= ? AND date_naissance < ?", true, dateDebut, dateAgee)
+	ageQuery := db.Table("migrants m").
+		Joins("JOIN identites i ON m.identite_uuid = i.uuid").
+		Where("m.actif = ? AND m.created_at >= ? AND i.date_naissance < ?", true, dateDebut, dateAgee)
 	if province != "" {
-		ageQuery = ageQuery.Where("ville_actuelle = ?", province)
+		ageQuery = ageQuery.Where("m.ville_actuelle = ?", province)
 	}
 	ageQuery.Count(&ages)
 
@@ -322,12 +329,14 @@ func getProfilDemographique(periode int, province string) ProfilDemographiqueSta
 	if province != "" {
 		migrantsQuery = migrantsQuery.Where("ville_actuelle = ?", province)
 	}
-	migrantsQuery.Select("date_naissance").Find(&migrants)
+	migrantsQuery.Preload("Identite").Find(&migrants)
 
 	if len(migrants) > 0 {
 		for _, migrant := range migrants {
-			age := float64(time.Now().Year() - migrant.DateNaissance.Year())
-			ageTotal += age
+			if migrant.Identite.DateNaissance.Year() > 0 {
+				age := float64(time.Now().Year() - migrant.Identite.DateNaissance.Year())
+				ageTotal += age
+			}
 		}
 		ageTotal = ageTotal / float64(len(migrants))
 	}
@@ -436,8 +445,9 @@ func getTendancesRetour(periode int, province string) []TendanceRetourStats {
 	}
 
 	query := db.Table("geolocalisations g").
-		Select("m.lieu_naissance as zone_origine, g.ville as zone_retour, COUNT(*) as count").
+		Select("i.lieu_naissance as zone_origine, g.ville as zone_retour, COUNT(*) as count").
 		Joins("JOIN migrants m ON g.migrant_uuid = m.uuid").
+		Joins("JOIN identites i ON m.identite_uuid = i.uuid").
 		Where("g.type_mouvement = ? AND g.created_at >= ? AND m.actif = ?",
 			"residence_permanente", dateDebut, true).
 		Group("zone_origine, zone_retour").

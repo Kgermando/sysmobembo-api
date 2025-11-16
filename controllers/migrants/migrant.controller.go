@@ -265,23 +265,13 @@ func CreateMigrant(c *fiber.Ctx) error {
 		})
 	}
 
-	// Validation des champs requis
-	if migrant.Nom == "" || migrant.Prenom == "" || migrant.PaysOrigine == "" {
-		return c.Status(400).JSON(fiber.Map{
-			"status":  "error",
-			"message": "Form not complete - nom, prenom, and pays_origine are required",
-			"data":    nil,
-		})
-	}
+	// TODO: Ajouter validation pour IdentiteUUID ou créer Identite d'abord
 
 	// Générer automatiquement l'UUID et le NumeroIdentifiant
 	migrant.UUID = utils.GenerateUUID()
 	migrant.NumeroIdentifiant = generateNumeroIdentifiant()
 
-	// Normaliser le sexe si fourni
-	if migrant.Sexe != "" {
-		migrant.Sexe = normalizeSexe(migrant.Sexe)
-	}
+	// TODO: Normaliser via Identite
 
 	// Validation des données
 	if errors := utils.ValidateStruct(*migrant); len(errors) > 0 {
@@ -289,26 +279,6 @@ func CreateMigrant(c *fiber.Ctx) error {
 		var errorMessages []string
 		for _, err := range errors {
 			switch err.FailedField {
-			case "Migrant.Sexe":
-				if err.Tag == "oneof" {
-					errorMessages = append(errorMessages, "Le sexe doit être 'M' (Masculin) ou 'F' (Féminin)")
-				} else {
-					errorMessages = append(errorMessages, "Le sexe est requis")
-				}
-			case "Migrant.DateNaissance":
-				errorMessages = append(errorMessages, "La date de naissance est requise")
-			case "Migrant.LieuNaissance":
-				errorMessages = append(errorMessages, "Le lieu de naissance est requis")
-			case "Migrant.Nationalite":
-				errorMessages = append(errorMessages, "La nationalité est requise")
-			case "Migrant.TypeDocument":
-				if err.Tag == "oneof" {
-					errorMessages = append(errorMessages, "Le type de document doit être: passport, carte_identite ou permis_conduire")
-				} else {
-					errorMessages = append(errorMessages, "Le type de document est requis")
-				}
-			case "Migrant.NumeroDocument":
-				errorMessages = append(errorMessages, "Le numéro de document est requis")
 			case "Migrant.StatutMigratoire":
 				if err.Tag == "oneof" {
 					errorMessages = append(errorMessages, "Le statut migratoire doit être: regulier, irregulier, demandeur_asile ou refugie")
@@ -331,17 +301,7 @@ func CreateMigrant(c *fiber.Ctx) error {
 		})
 	}
 
-	// Vérifier l'unicité du numéro de document s'il est fourni
-	if migrant.NumeroDocument != "" {
-		var existingMigrant models.Migrant
-		if err := database.DB.Where("numero_document = ?", migrant.NumeroDocument).First(&existingMigrant).Error; err == nil {
-			return c.Status(400).JSON(fiber.Map{
-				"status":  "error",
-				"message": "A migrant with this document number already exists",
-				"data":    nil,
-			})
-		}
-	}
+	// TODO: Vérifier unicité via Identite
 
 	// Vérifier l'unicité de l'email s'il est fourni
 	if migrant.Email != "" {
@@ -399,22 +359,9 @@ func UpdateMigrant(c *fiber.Ctx) error {
 	updateData.UUID = migrant.UUID
 	updateData.NumeroIdentifiant = migrant.NumeroIdentifiant
 
-	// Normaliser le sexe si fourni
-	if updateData.Sexe != "" {
-		updateData.Sexe = normalizeSexe(updateData.Sexe)
-	}
+	// TODO: Normaliser via Identite
 
 	// Vérifier l'unicité du numéro de document s'il est modifié
-	if updateData.NumeroDocument != "" && updateData.NumeroDocument != migrant.NumeroDocument {
-		var existingMigrant models.Migrant
-		if err := database.DB.Where("numero_document = ? AND uuid != ?", updateData.NumeroDocument, uuid).First(&existingMigrant).Error; err == nil {
-			return c.Status(400).JSON(fiber.Map{
-				"status":  "error",
-				"message": "A migrant with this document number already exists",
-				"data":    nil,
-			})
-		}
-	}
 
 	// Vérifier l'unicité de l'email s'il est modifié
 	if updateData.Email != "" && updateData.Email != migrant.Email {
@@ -531,26 +478,15 @@ func ExportMigrantsToExcel(c *fiber.Ctx) error {
 
 	var migrants []models.Migrant
 
-	query := db.Model(&models.Migrant{})
+	query := db.Model(&models.Migrant{}).Preload("Identite")
 
+	// TODO: Filtres sur Identite nécessitent un JOIN
 	// Appliquer les filtres
-	if nom != "" {
-		query = query.Where("nom ILIKE ?", "%"+nom+"%")
-	}
-	if prenom != "" {
-		query = query.Where("prenom ILIKE ?", "%"+prenom+"%")
-	}
-	if nationalite != "" {
-		query = query.Where("nationalite ILIKE ?", "%"+nationalite+"%")
-	}
+	// if nom != "" {
+	// 	query = query.Joins("JOIN identites ON migrants.identite_uuid = identites.uuid").Where("identites.nom ILIKE ?", "%"+nom+"%")
+	// }
 	if statutMigratoire != "" {
 		query = query.Where("statut_migratoire = ?", statutMigratoire)
-	}
-	if paysOrigine != "" {
-		query = query.Where("pays_origine ILIKE ?", "%"+paysOrigine+"%")
-	}
-	if sexe != "" {
-		query = query.Where("sexe = ?", sexe)
 	}
 	if actif != "" {
 		switch actif {
@@ -863,65 +799,89 @@ func ExportMigrantsToExcel(c *fiber.Ctx) error {
 
 		// Nom
 		cell = fmt.Sprintf("B%d", dataRow)
-		f.SetCellValue("Migrants", cell, migrant.Nom)
+		if migrant.Identite.UUID != "" {
+			f.SetCellValue("Migrants", cell, migrant.Identite.Nom)
+		} else {
+			f.SetCellValue("Migrants", cell, "")
+		}
 		f.SetCellStyle("Migrants", cell, cell, dataStyle)
 
 		// Prénom
 		cell = fmt.Sprintf("C%d", dataRow)
-		f.SetCellValue("Migrants", cell, migrant.Prenom)
+		if migrant.Identite.UUID != "" {
+			f.SetCellValue("Migrants", cell, migrant.Identite.Prenom)
+		} else {
+			f.SetCellValue("Migrants", cell, "")
+		}
 		f.SetCellStyle("Migrants", cell, cell, dataStyle)
 
 		// Date de naissance
 		cell = fmt.Sprintf("D%d", dataRow)
-		f.SetCellValue("Migrants", cell, migrant.DateNaissance.Format("02/01/2006"))
+		if migrant.Identite.UUID != "" {
+			f.SetCellValue("Migrants", cell, migrant.Identite.DateNaissance.Format("02/01/2006"))
+		} else {
+			f.SetCellValue("Migrants", cell, "")
+		}
 		f.SetCellStyle("Migrants", cell, cell, dateStyle)
 
 		// Lieu de naissance
 		cell = fmt.Sprintf("E%d", dataRow)
-		f.SetCellValue("Migrants", cell, migrant.LieuNaissance)
+		if migrant.Identite.UUID != "" {
+			f.SetCellValue("Migrants", cell, migrant.Identite.LieuNaissance)
+		} else {
+			f.SetCellValue("Migrants", cell, "")
+		}
 		f.SetCellStyle("Migrants", cell, cell, dataStyle)
 
 		// Sexe
 		cell = fmt.Sprintf("F%d", dataRow)
-		f.SetCellValue("Migrants", cell, migrant.Sexe)
+		if migrant.Identite.UUID != "" {
+			f.SetCellValue("Migrants", cell, migrant.Identite.Sexe)
+		} else {
+			f.SetCellValue("Migrants", cell, "")
+		}
 		f.SetCellStyle("Migrants", cell, cell, dataStyle)
 
 		// Nationalité
 		cell = fmt.Sprintf("G%d", dataRow)
-		f.SetCellValue("Migrants", cell, migrant.Nationalite)
+		if migrant.Identite.UUID != "" {
+			f.SetCellValue("Migrants", cell, migrant.Identite.Nationalite)
+		} else {
+			f.SetCellValue("Migrants", cell, "")
+		}
 		f.SetCellStyle("Migrants", cell, cell, dataStyle)
 
-		// Type de document
+		// Type de document (n'existe plus - colonne vide)
 		cell = fmt.Sprintf("H%d", dataRow)
-		f.SetCellValue("Migrants", cell, migrant.TypeDocument)
+		f.SetCellValue("Migrants", cell, "Passeport") // Tous les docs sont des passeports maintenant
 		f.SetCellStyle("Migrants", cell, cell, dataStyle)
 
-		// N° Document
+		// N° Document (maintenant NumeroPasseport)
 		cell = fmt.Sprintf("I%d", dataRow)
-		f.SetCellValue("Migrants", cell, migrant.NumeroDocument)
+		if migrant.Identite.UUID != "" {
+			f.SetCellValue("Migrants", cell, migrant.Identite.NumeroPasseport)
+		} else {
+			f.SetCellValue("Migrants", cell, "")
+		}
 		f.SetCellStyle("Migrants", cell, cell, dataStyle)
 
-		// Date émission doc
+		// Date émission doc (n'existe plus)
 		cell = fmt.Sprintf("J%d", dataRow)
-		if migrant.DateEmissionDoc != nil {
-			f.SetCellValue("Migrants", cell, migrant.DateEmissionDoc.Format("02/01/2006"))
-		} else {
-			f.SetCellValue("Migrants", cell, "")
-		}
+		f.SetCellValue("Migrants", cell, "")
 		f.SetCellStyle("Migrants", cell, cell, dateStyle)
 
-		// Date expiration doc
+		// Date expiration doc (n'existe plus)
 		cell = fmt.Sprintf("K%d", dataRow)
-		if migrant.DateExpirationDoc != nil {
-			f.SetCellValue("Migrants", cell, migrant.DateExpirationDoc.Format("02/01/2006"))
+		f.SetCellValue("Migrants", cell, "")
+		f.SetCellStyle("Migrants", cell, cell, dateStyle)
+
+		// Autorité émission (maintenant AutoriteEmetteur)
+		cell = fmt.Sprintf("L%d", dataRow)
+		if migrant.Identite.UUID != "" {
+			f.SetCellValue("Migrants", cell, migrant.Identite.AutoriteEmetteur)
 		} else {
 			f.SetCellValue("Migrants", cell, "")
 		}
-		f.SetCellStyle("Migrants", cell, cell, dateStyle)
-
-		// Autorité émission
-		cell = fmt.Sprintf("L%d", dataRow)
-		f.SetCellValue("Migrants", cell, migrant.AutoriteEmission)
 		f.SetCellStyle("Migrants", cell, cell, dataStyle)
 
 		// Téléphone
@@ -988,9 +948,13 @@ func ExportMigrantsToExcel(c *fiber.Ctx) error {
 		f.SetCellValue("Migrants", cell, migrant.PointEntree)
 		f.SetCellStyle("Migrants", cell, cell, dataStyle)
 
-		// Pays d'origine
+		// Pays d'origine (maintenant dans Identite.Nationalite)
 		cell = fmt.Sprintf("Y%d", dataRow)
-		f.SetCellValue("Migrants", cell, migrant.PaysOrigine)
+		if migrant.Identite.UUID != "" {
+			f.SetCellValue("Migrants", cell, migrant.Identite.Nationalite)
+		} else {
+			f.SetCellValue("Migrants", cell, "")
+		}
 		f.SetCellStyle("Migrants", cell, cell, dataStyle)
 
 		// Pays destination
@@ -1077,9 +1041,11 @@ func ExportMigrantsToExcel(c *fiber.Ctx) error {
 
 		for _, migrant := range migrants {
 			statutCount[migrant.StatutMigratoire]++
-			nationaliteCount[migrant.Nationalite]++
-			sexeCount[migrant.Sexe]++
-			paysOrigineCount[migrant.PaysOrigine]++
+			if migrant.Identite.UUID != "" {
+				nationaliteCount[migrant.Identite.Nationalite]++
+				sexeCount[migrant.Identite.Sexe]++
+				paysOrigineCount[migrant.Identite.Nationalite]++ // Utilise Nationalite comme pays d'origine
+			}
 			if migrant.Actif {
 				actifCount++
 			} else {

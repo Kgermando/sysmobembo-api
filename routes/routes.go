@@ -7,6 +7,7 @@ import (
 	"github.com/kgermando/sysmobembo-api/controllers/biometrics"
 	"github.com/kgermando/sysmobembo-api/controllers/dashboard"
 	"github.com/kgermando/sysmobembo-api/controllers/geolocation"
+	"github.com/kgermando/sysmobembo-api/controllers/identites"
 	"github.com/kgermando/sysmobembo-api/controllers/migrants"
 	motifDeplacement "github.com/kgermando/sysmobembo-api/controllers/motifDeplacement"
 	"github.com/kgermando/sysmobembo-api/controllers/overview"
@@ -94,6 +95,17 @@ func Setup(app *fiber.App) {
 	migrant.Delete("/delete/:uuid", migrants.DeleteMigrant)
 	migrant.Get("/stats", migrants.GetMigrantsStats)
 	migrant.Get("/export/excel", migrants.ExportMigrantsToExcel)
+
+	// Identites controller
+	identitesGroup := api.Group("/identites")
+	identitesGroup.Get("/paginate", identites.GetAllIdentites)
+	identitesGroup.Get("/:uuid", identites.GetIdentite)
+	identitesGroup.Post("/create", identites.CreateIdentite)
+	identitesGroup.Put("/update/:uuid", identites.UpdateIdentite)
+	identitesGroup.Delete("/delete/:uuid", identites.DeleteIdentite)
+	identitesGroup.Get("/search", identites.SearchIdentites)
+	identitesGroup.Get("/export/excel", identites.ExportIdentitesToExcel)
+	identitesGroup.Get("/statistics", identites.GetIdentiteStatistics)
 
 	// Motif Deplacement controller
 	motif := api.Group("/motif-deplacements")

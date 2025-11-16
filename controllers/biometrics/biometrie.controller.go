@@ -939,8 +939,8 @@ func ExportBiometriesToExcel(c *fiber.Ctx) error {
 
 		// Nom du migrant
 		cell = fmt.Sprintf("C%d", dataRow)
-		if biometrie.Migrant.Nom != "" {
-			f.SetCellValue("Biométries", cell, biometrie.Migrant.Nom)
+		if biometrie.Migrant.Identite.UUID != "" {
+			f.SetCellValue("Biométries", cell, biometrie.Migrant.Identite.Nom)
 		} else {
 			f.SetCellValue("Biométries", cell, "N/A")
 		}
@@ -948,8 +948,8 @@ func ExportBiometriesToExcel(c *fiber.Ctx) error {
 
 		// Prénom du migrant
 		cell = fmt.Sprintf("D%d", dataRow)
-		if biometrie.Migrant.Prenom != "" {
-			f.SetCellValue("Biométries", cell, biometrie.Migrant.Prenom)
+		if biometrie.Migrant.Identite.UUID != "" {
+			f.SetCellValue("Biométries", cell, biometrie.Migrant.Identite.Prenom)
 		} else {
 			f.SetCellValue("Biométries", cell, "N/A")
 		}
