@@ -20,6 +20,7 @@ func GetAllIdentites(c *fiber.Ctx) error {
 
 	// Filtres
 	nom := c.Query("nom", "")
+	postnom := c.Query("postnom", "")
 	prenom := c.Query("prenom", "")
 	nationalite := c.Query("nationalite", "")
 	sexe := c.Query("sexe", "")
@@ -33,6 +34,9 @@ func GetAllIdentites(c *fiber.Ctx) error {
 	// Appliquer les filtres
 	if nom != "" {
 		query = query.Where("nom ILIKE ?", "%"+nom+"%")
+	}
+	if postnom != "" {
+		query = query.Where("postnom ILIKE ?", "%"+postnom+"%")
 	}
 	if prenom != "" {
 		query = query.Where("prenom ILIKE ?", "%"+prenom+"%")
@@ -115,6 +119,8 @@ func CreateIdentite(c *fiber.Ctx) error {
 			switch err.FailedField {
 			case "Identite.Nom":
 				errorMessages = append(errorMessages, "Le nom est requis")
+			case "Identite.Postnom":
+				errorMessages = append(errorMessages, "Le postnom est requis")
 			case "Identite.Prenom":
 				errorMessages = append(errorMessages, "Le prénom est requis")
 			case "Identite.DateNaissance":
@@ -276,8 +282,8 @@ func SearchIdentites(c *fiber.Ctx) error {
 	}
 
 	var identites []models.Identite
-	err := db.Where("nom ILIKE ? OR prenom ILIKE ? OR numero_passeport ILIKE ?",
-		"%"+search+"%", "%"+search+"%", "%"+search+"%").
+	err := db.Where("nom ILIKE ? OR postnom ILIKE ? OR prenom ILIKE ? OR numero_passeport ILIKE ?",
+		"%"+search+"%", "%"+search+"%", "%"+search+"%", "%"+search+"%").
 		Limit(20).
 		Find(&identites).Error
 
@@ -301,6 +307,7 @@ func ExportIdentitesToExcel(c *fiber.Ctx) error {
 
 	// Récupérer les paramètres de filtre
 	nom := c.Query("nom", "")
+	postnom := c.Query("postnom", "")
 	prenom := c.Query("prenom", "")
 	nationalite := c.Query("nationalite", "")
 	sexe := c.Query("sexe", "")
@@ -312,6 +319,9 @@ func ExportIdentitesToExcel(c *fiber.Ctx) error {
 	// Appliquer les filtres
 	if nom != "" {
 		query = query.Where("nom ILIKE ?", "%"+nom+"%")
+	}
+	if postnom != "" {
+		query = query.Where("postnom ILIKE ?", "%"+postnom+"%")
 	}
 	if prenom != "" {
 		query = query.Where("prenom ILIKE ?", "%"+prenom+"%")
@@ -398,6 +408,7 @@ func ExportIdentitesToExcel(c *fiber.Ctx) error {
 	headers := []string{
 		"UUID",
 		"Nom",
+		"Postnom",
 		"Prénom",
 		"Date de naissance",
 		"Lieu de naissance",
@@ -425,20 +436,21 @@ func ExportIdentitesToExcel(c *fiber.Ctx) error {
 
 		f.SetCellValue("Identités", fmt.Sprintf("A%d", dataRow), identite.UUID)
 		f.SetCellValue("Identités", fmt.Sprintf("B%d", dataRow), identite.Nom)
-		f.SetCellValue("Identités", fmt.Sprintf("C%d", dataRow), identite.Prenom)
-		f.SetCellValue("Identités", fmt.Sprintf("D%d", dataRow), identite.DateNaissance.Format("02/01/2006"))
-		f.SetCellValue("Identités", fmt.Sprintf("E%d", dataRow), identite.LieuNaissance)
-		f.SetCellValue("Identités", fmt.Sprintf("F%d", dataRow), identite.Sexe)
-		f.SetCellValue("Identités", fmt.Sprintf("G%d", dataRow), identite.Nationalite)
-		f.SetCellValue("Identités", fmt.Sprintf("H%d", dataRow), identite.Adresse)
-		f.SetCellValue("Identités", fmt.Sprintf("I%d", dataRow), identite.Profession)
-		f.SetCellValue("Identités", fmt.Sprintf("J%d", dataRow), identite.NumeroPasseport)
-		f.SetCellValue("Identités", fmt.Sprintf("K%d", dataRow), identite.PaysEmetteur)
-		f.SetCellValue("Identités", fmt.Sprintf("L%d", dataRow), identite.AutoriteEmetteur)
-		f.SetCellValue("Identités", fmt.Sprintf("M%d", dataRow), identite.CreatedAt.Format("02/01/2006 15:04"))
+		f.SetCellValue("Identités", fmt.Sprintf("C%d", dataRow), identite.Postnom)
+		f.SetCellValue("Identités", fmt.Sprintf("D%d", dataRow), identite.Prenom)
+		f.SetCellValue("Identités", fmt.Sprintf("E%d", dataRow), identite.DateNaissance.Format("02/01/2006"))
+		f.SetCellValue("Identités", fmt.Sprintf("F%d", dataRow), identite.LieuNaissance)
+		f.SetCellValue("Identités", fmt.Sprintf("G%d", dataRow), identite.Sexe)
+		f.SetCellValue("Identités", fmt.Sprintf("H%d", dataRow), identite.Nationalite)
+		f.SetCellValue("Identités", fmt.Sprintf("I%d", dataRow), identite.Adresse)
+		f.SetCellValue("Identités", fmt.Sprintf("J%d", dataRow), identite.Profession)
+		f.SetCellValue("Identités", fmt.Sprintf("K%d", dataRow), identite.NumeroPasseport)
+		f.SetCellValue("Identités", fmt.Sprintf("L%d", dataRow), identite.PaysEmetteur)
+		f.SetCellValue("Identités", fmt.Sprintf("M%d", dataRow), identite.AutoriteEmetteur)
+		f.SetCellValue("Identités", fmt.Sprintf("N%d", dataRow), identite.CreatedAt.Format("02/01/2006 15:04"))
 
 		// Appliquer le style aux données
-		for col := 'A'; col <= 'M'; col++ {
+		for col := 'A'; col <= 'N'; col++ {
 			cell := fmt.Sprintf("%c%d", col, dataRow)
 			f.SetCellStyle("Identités", cell, cell, dataStyle)
 		}
@@ -448,17 +460,18 @@ func ExportIdentitesToExcel(c *fiber.Ctx) error {
 	columnWidths := map[string]float64{
 		"A": 38, // UUID
 		"B": 15, // Nom
-		"C": 15, // Prénom
-		"D": 15, // Date naissance
-		"E": 20, // Lieu naissance
-		"F": 8,  // Sexe
-		"G": 20, // Nationalité
-		"H": 30, // Adresse
-		"I": 20, // Profession
-		"J": 15, // N° Passeport
-		"K": 20, // Pays émetteur
-		"L": 25, // Autorité émetteur
-		"M": 18, // Date création
+		"C": 15, // Postnom
+		"D": 15, // Prénom
+		"E": 15, // Date naissance
+		"F": 20, // Lieu naissance
+		"G": 8,  // Sexe
+		"H": 20, // Nationalité
+		"I": 30, // Adresse
+		"J": 20, // Profession
+		"K": 15, // N° Passeport
+		"L": 20, // Pays émetteur
+		"M": 25, // Autorité émetteur
+		"N": 18, // Date création
 	}
 
 	for col, width := range columnWidths {

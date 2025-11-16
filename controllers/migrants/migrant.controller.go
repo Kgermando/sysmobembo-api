@@ -3,7 +3,6 @@ package migrants
 import (
 	"fmt"
 	"strconv"
-	"strings"
 	"time"
 
 	"github.com/gofiber/fiber/v2"
@@ -12,20 +11,6 @@ import (
 	"github.com/kgermando/sysmobembo-api/utils"
 	"github.com/xuri/excelize/v2"
 )
-
-// normalizeSexe normalise les différents formats de sexe/genre vers M ou F
-func normalizeSexe(sexe string) string {
-	sexe = strings.ToLower(strings.TrimSpace(sexe))
-
-	switch sexe {
-	case "m", "masculin", "homme", "male", "man":
-		return "M"
-	case "f", "féminin", "feminin", "femme", "female", "woman":
-		return "F"
-	default:
-		return strings.ToUpper(sexe) // Retourne tel quel en majuscule pour laisser la validation s'en occuper
-	}
-}
 
 // Fonction pour générer automatiquement le NumeroIdentifiant
 func generateNumeroIdentifiant() string {
