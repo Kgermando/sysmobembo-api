@@ -222,6 +222,10 @@ func CreateIdentite(c *fiber.Ctx) error {
 				}
 			case "Identite.Nationalite":
 				errorMessages = append(errorMessages, "La nationalité est requise")
+			case "Identite.DateEmission":
+				errorMessages = append(errorMessages, "La date d'émission est requise")
+			case "Identite.DateExpiration":
+				errorMessages = append(errorMessages, "La date d'expiration est requise")
 			default:
 				errorMessages = append(errorMessages, fmt.Sprintf("Erreur de validation pour %s: %s", err.FailedField, err.Tag))
 			}
@@ -356,7 +360,6 @@ func DeleteIdentite(c *fiber.Ctx) error {
 	})
 }
 
-
 // ExportIdentitesToExcel exporte les identités vers Excel
 func ExportIdentitesToExcel(c *fiber.Ctx) error {
 	db := database.DB
@@ -463,6 +466,8 @@ func ExportIdentitesToExcel(c *fiber.Ctx) error {
 		"N° Passeport",
 		"Pays émetteur",
 		"Autorité émetteur",
+		"Date d'émission",
+		"Date d'expiration",
 		"Date création",
 	}
 
@@ -491,10 +496,12 @@ func ExportIdentitesToExcel(c *fiber.Ctx) error {
 		f.SetCellValue("Identités", fmt.Sprintf("K%d", dataRow), identite.NumeroPasseport)
 		f.SetCellValue("Identités", fmt.Sprintf("L%d", dataRow), identite.PaysEmetteur)
 		f.SetCellValue("Identités", fmt.Sprintf("M%d", dataRow), identite.AutoriteEmetteur)
-		f.SetCellValue("Identités", fmt.Sprintf("N%d", dataRow), identite.CreatedAt.Format("02/01/2006 15:04"))
+		f.SetCellValue("Identités", fmt.Sprintf("N%d", dataRow), identite.DateEmission.Format("02/01/2006"))
+		f.SetCellValue("Identités", fmt.Sprintf("O%d", dataRow), identite.DateExpiration.Format("02/01/2006"))
+		f.SetCellValue("Identités", fmt.Sprintf("P%d", dataRow), identite.CreatedAt.Format("02/01/2006 15:04"))
 
 		// Appliquer le style aux données
-		for col := 'A'; col <= 'N'; col++ {
+		for col := 'A'; col <= 'P'; col++ {
 			cell := fmt.Sprintf("%c%d", col, dataRow)
 			f.SetCellStyle("Identités", cell, cell, dataStyle)
 		}
@@ -515,7 +522,9 @@ func ExportIdentitesToExcel(c *fiber.Ctx) error {
 		"K": 15, // N° Passeport
 		"L": 20, // Pays émetteur
 		"M": 25, // Autorité émetteur
-		"N": 18, // Date création
+		"N": 15, // Date d'émission
+		"O": 15, // Date d'expiration
+		"P": 18, // Date création
 	}
 
 	for col, width := range columnWidths {

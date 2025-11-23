@@ -27,6 +27,8 @@ type Identite struct {
 
 	PaysEmetteur     string `json:"pays_emetteur" gorm:"not null;default:''" validate:"required"`
 	AutoriteEmetteur string `json:"autorite_emetteur" gorm:"not null;default:''" validate:"required"`
+	DateEmission     time.Time `json:"date_emission" validate:"required"`
+	DateExpiration   time.Time `json:"date_expiration" validate:"required"`
 
 	NumeroPasseport string `json:"numero_passeport" gorm:"unique;not null;default:''" validate:"required"`
 
