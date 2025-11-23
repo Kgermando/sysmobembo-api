@@ -356,68 +356,25 @@ func DeleteIdentite(c *fiber.Ctx) error {
 	})
 }
 
-// SearchIdentites recherche des identités
-func SearchIdentites(c *fiber.Ctx) error {
-	db := database.DB
-	search := c.Query("q", "")
-
-	if search == "" {
-		return c.Status(400).JSON(fiber.Map{
-			"status":  "error",
-			"message": "Search query is required",
-		})
-	}
-
-	var identites []models.Identite
-	err := db.Where("nom ILIKE ? OR postnom ILIKE ? OR prenom ILIKE ? OR numero_passeport ILIKE ?",
-		"%"+search+"%", "%"+search+"%", "%"+search+"%", "%"+search+"%").
-		Limit(20).
-		Find(&identites).Error
-
-	if err != nil {
-		return c.Status(500).JSON(fiber.Map{
-			"status":  "error",
-			"message": "Cannot search identites",
-			"error":   err.Error(),
-		})
-	}
-
-	return c.JSON(fiber.Map{
-		"status": "success",
-		"data":   identites,
-	})
-}
 
 // ExportIdentitesToExcel exporte les identités vers Excel
 func ExportIdentitesToExcel(c *fiber.Ctx) error {
 	db := database.DB
 
-	// Récupérer les paramètres de filtre
-	nom := c.Query("nom", "")
-	postnom := c.Query("postnom", "")
-	prenom := c.Query("prenom", "")
-	nationalite := c.Query("nationalite", "")
-	sexe := c.Query("sexe", "")
+	// Récupérer les paramètres de plage de dates
+	startDate := c.Query("start_date", "")
+	endDate := c.Query("end_date", "")
 
 	var identites []models.Identite
 
 	query := db.Model(&models.Identite{})
 
-	// Appliquer les filtres
-	if nom != "" {
-		query = query.Where("nom ILIKE ?", "%"+nom+"%")
+	// Appliquer les filtres de dates
+	if startDate != "" {
+		query = query.Where("created_at >= ?", startDate)
 	}
-	if postnom != "" {
-		query = query.Where("postnom ILIKE ?", "%"+postnom+"%")
-	}
-	if prenom != "" {
-		query = query.Where("prenom ILIKE ?", "%"+prenom+"%")
-	}
-	if nationalite != "" {
-		query = query.Where("nationalite ILIKE ?", "%"+nationalite+"%")
-	}
-	if sexe != "" {
-		query = query.Where("sexe = ?", sexe)
+	if endDate != "" {
+		query = query.Where("created_at <= ?", endDate)
 	}
 
 	// Récupérer toutes les données

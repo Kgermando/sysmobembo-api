@@ -99,8 +99,7 @@ func Setup(app *fiber.App) {
 	identitesGroup.Get("/:uuid", identites.GetIdentite)
 	identitesGroup.Post("/create", identites.CreateIdentite)
 	identitesGroup.Put("/update/:uuid", identites.UpdateIdentite)
-	identitesGroup.Delete("/delete/:uuid", identites.DeleteIdentite)
-	identitesGroup.Get("/search", identites.SearchIdentites)
+	identitesGroup.Delete("/delete/:uuid", identites.DeleteIdentite) 
 	identitesGroup.Get("/export/excel", identites.ExportIdentitesToExcel)
 	identitesGroup.Get("/statistics", identites.GetIdentiteStatistics)
 

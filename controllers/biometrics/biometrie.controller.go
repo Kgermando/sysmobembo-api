@@ -111,13 +111,14 @@ func GetPaginatedBiometries(c *fiber.Ctx) error {
 
 	query := db.Model(&models.Biometrie{}).
 		Preload("Migrant").
-		Select("uuid, numero_identifiant, type_biometrie, index_doigt, qualite_donnee, algorithme_encodage, taille_fichier, date_capture, disposif_capture, verifie, score_confiance, chiffre, created_at, updated_at") // Exclure les données sensibles
+		Joins("LEFT JOIN migrants ON migrants.uuid = biometries.migrant_uuid").
+		Select("biometries.uuid, biometries.migrant_uuid, migrants.numero_identifiant, biometries.type_biometrie, biometries.index_doigt, biometries.qualite_donnee, biometries.algorithme_encodage, biometries.taille_fichier, biometries.date_capture, biometries.disposif_capture, biometries.verifie, biometries.score_confiance, biometries.chiffre, biometries.created_at, biometries.updated_at") // Exclure les données sensibles
 
 	// Appliquer la recherche si le paramètre est fourni
 	if search != "" {
 		query = query.Joins("LEFT JOIN migrants ON migrants.uuid = biometries.migrant_uuid").
-			Where("biometries.type_biometrie ILIKE ? OR biometries.qualite_donnee ILIKE ? OR biometries.disposif_capture ILIKE ?",
-				"%"+search+"%", "%"+search+"%", "%"+search+"%")
+			Where("migrants.numero_identifiant ILIKE ? OR biometries.type_biometrie ILIKE ? OR biometries.qualite_donnee ILIKE ? OR biometries.disposif_capture ILIKE ?",
+				"%"+search+"%", "%"+search+"%", "%"+search+"%", "%"+search+"%")
 	}
 
 	// Count total
@@ -159,7 +160,9 @@ func GetAllBiometries(c *fiber.Ctx) error {
 	db := database.DB
 	var biometries []models.Biometrie
 
-	err := db.Select("uuid, numero_identifiant, type_biometrie, index_doigt, qualite_donnee, algorithme_encodage, taille_fichier, date_capture, disposif_capture, verifie, score_confiance, chiffre, created_at, updated_at").
+	err := db.Model(&models.Biometrie{}).
+		Joins("LEFT JOIN migrants ON migrants.uuid = biometries.migrant_uuid").
+		Select("biometries.uuid, biometries.migrant_uuid, migrants.numero_identifiant, biometries.type_biometrie, biometries.index_doigt, biometries.qualite_donnee, biometries.algorithme_encodage, biometries.taille_fichier, biometries.date_capture, biometries.disposif_capture, biometries.verifie, biometries.score_confiance, biometries.chiffre, biometries.created_at, biometries.updated_at").
 		Preload("Migrant").
 		Find(&biometries).Error
 
@@ -228,8 +231,9 @@ func GetBiometriesByMigrant(c *fiber.Ctx) error {
 	var totalRecords int64
 
 	query := db.Model(&models.Biometrie{}).
-		Where("migrant_uuid = ?", migrantUUID).
-		Select("uuid, numero_identifiant, type_biometrie, index_doigt, qualite_donnee, algorithme_encodage, taille_fichier, date_capture, disposif_capture, verifie, score_confiance, chiffre, created_at, updated_at")
+		Joins("LEFT JOIN migrants ON migrants.uuid = biometries.migrant_uuid").
+		Where("biometries.migrant_uuid = ?", migrantUUID).
+		Select("biometries.uuid, biometries.migrant_uuid, migrants.numero_identifiant, biometries.type_biometrie, biometries.index_doigt, biometries.qualite_donnee, biometries.algorithme_encodage, biometries.taille_fichier, biometries.date_capture, biometries.disposif_capture, biometries.verifie, biometries.score_confiance, biometries.chiffre, biometries.created_at, biometries.updated_at")
 
 	// Count total
 	query.Count(&totalRecords)
@@ -425,7 +429,7 @@ func GetBiometricsStats(c *fiber.Ctx) error {
 		Scan(&qualityStats)
 
 	// Score de confiance moyen
-	var avgConfidenceScore float64
+	var avgConfidenceScore *float64
 	db.Model(&models.Biometrie{}).
 		Where("score_confiance IS NOT NULL").
 		Select("AVG(score_confiance)").

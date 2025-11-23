@@ -18,7 +18,7 @@ type IndicateursDeplacementResponse struct {
 	DateGeneration       time.Time                       `json:"date_generation"`
 	PeriodeAnalyse       string                          `json:"periode_analyse"`
 }
- 
+
 // Structures pour les données des graphiques
 type ChartDataPoint struct {
 	Name  string      `json:"name"`
@@ -90,6 +90,7 @@ type CauseDetailStats struct {
 
 type ProfilDemographiqueStats struct {
 	PourcentageFemmes  float64 `json:"pourcentage_femmes"`
+	PourcentageHommes  float64 `json:"pourcentage_hommes"`
 	PourcentageEnfants float64 `json:"pourcentage_enfants"`
 	PourcentageAges    float64 `json:"pourcentage_ages"`
 	AgeMoyen           float64 `json:"age_moyen"`

@@ -130,13 +130,21 @@ func runAllSimulators(db *gorm.DB) error {
 	}
 
 	log.Println("=== SIMULATION TERMINÉE AVEC SUCCÈS ===")
-	log.Println("Données créées:")
-	log.Println("- 5 utilisateurs du système")
-	log.Println("- 8 migrants de différentes nationalités")
-	log.Println("- Multiple géolocalisations par migrant")
-	log.Println("- Motifs de déplacement variés")
-	log.Println("- Données biométriques complètes")
-	log.Println("- 8 alertes de différents types")
+	log.Println("📊 Statistiques des données créées:")
+	log.Println("✅ 3 utilisateurs du système (Administrateurs DGM)")
+	log.Println("✅ 50 identités de migrants (réparties sur 6 mois)")
+	log.Println("✅ 50 migrants avec statuts variés")
+	log.Println("   - Distribution géographique réaliste à travers la RDC")
+	log.Println("   - Kinshasa (35%), Goma (20%), Lubumbashi (15%), etc.")
+	log.Println("✅ ~150-200 géolocalisations (2-4 par migrant)")
+	log.Println("✅ 50 motifs de déplacement")
+	log.Println("   - Économiques, politiques, sécuritaires, etc.")
+	log.Println("✅ ~100-150 données biométriques")
+	log.Println("   - Empreintes digitales et reconnaissance faciale")
+	log.Println("✅ ~75-125 alertes de suivi")
+	log.Println("   - Sécurité, santé, administrative, sociale, juridique")
+	log.Println("⏰ Données étalées de janvier à juin 2025")
+	log.Println("🗺️  Coordonnées GPS réelles des villes de la RDC")
 
 	return nil
 }
@@ -286,317 +294,147 @@ func simulateUsers(db *gorm.DB) error {
 func simulateIdentites(db *gorm.DB) (map[string]string, error) {
 	identiteMap := make(map[string]string)
 
-	identites := []struct {
-		NumeroIdentifiant string
-		Identite          models.Identite
+	// Noms et prénoms réalistes pour la RDC et pays voisins
+	noms := []string{"KABILA", "TSHISEKEDI", "MBUYI", "MUKENDI", "KASONGO", "NGOY", "MULAMBA", "ILUNGA",
+		"KALALA", "KILOLO", "LUBOYA", "MATANDA", "NDALA", "NKULU", "MUTOMBO", "BANZA", "KALONJI",
+		"KAMBALE", "KASEREKA", "MUHINDO", "SIVIHWA", "PALUKU", "MBUSA", "KAVIRA"}
+
+	prenoms := []string{"Jean-Pierre", "Marie", "Joseph", "Grace", "Patient", "Espérance", "Emmanuel",
+		"Jeanne", "David", "Sarah", "Daniel", "Rebecca", "Samuel", "Ruth", "Isaac", "Esther"}
+
+	// Villes de la RDC avec leurs coordonnées GPS
+	villes := []struct {
+		Nom string
+		Lat float64
+		Lng float64
 	}{
-		// === MIGRANTS INTERNATIONAUX ===
-		{
-			NumeroIdentifiant: "MIG2025001",
-			Identite: models.Identite{
-				UUID:             utils.GenerateUUID(),
-				Nom:              "OUEDRAOGO",
-				Prenom:           "Amadou",
-				DateNaissance:    time.Date(1990, 5, 15, 0, 0, 0, 0, time.UTC),
-				LieuNaissance:    "Ouagadougou",
-				Sexe:             "M",
-				Nationalite:      "Burkinabè",
-				Adresse:          "Avenue Kasavubu, N°45, Kinshasa",
-				Profession:       "Commerçant",
-				PaysEmetteur:     "Burkina Faso",
-				AutoriteEmetteur: "République du Burkina Faso",
-				NumeroPasseport:  "BF1234567",
-				CreatedAt:        time.Date(2025, 6, 5, 10, 30, 0, 0, time.UTC),
-				UpdatedAt:        time.Date(2025, 6, 5, 10, 30, 0, 0, time.UTC),
-			},
-		},
-		{
-			NumeroIdentifiant: "MIG2025002",
-			Identite: models.Identite{
-				UUID:             utils.GenerateUUID(),
-				Nom:              "SANKARA",
-				Prenom:           "Fanta",
-				DateNaissance:    time.Date(1987, 9, 12, 0, 0, 0, 0, time.UTC),
-				LieuNaissance:    "Bobo-Dioulasso",
-				Sexe:             "F",
-				Nationalite:      "Burkinabè",
-				Adresse:          "Avenue de la Justice, N°78, Kinshasa",
-				Profession:       "Infirmière",
-				PaysEmetteur:     "Burkina Faso",
-				AutoriteEmetteur: "République du Burkina Faso",
-				NumeroPasseport:  "BF9876543",
-				CreatedAt:        time.Date(2025, 6, 12, 14, 15, 0, 0, time.UTC),
-				UpdatedAt:        time.Date(2025, 6, 12, 14, 15, 0, 0, time.UTC),
-			},
-		},
-		{
-			NumeroIdentifiant: "MIG2025003",
-			Identite: models.Identite{
-				UUID:             utils.GenerateUUID(),
-				Nom:              "ZONGO",
-				Prenom:           "Rasmané",
-				DateNaissance:    time.Date(1993, 2, 28, 0, 0, 0, 0, time.UTC),
-				LieuNaissance:    "Ouahigouya",
-				Sexe:             "M",
-				Nationalite:      "Burkinabè",
-				Adresse:          "Commune de Bandalungwa, Rue 15",
-				Profession:       "Agriculteur",
-				PaysEmetteur:     "Burkina Faso",
-				AutoriteEmetteur: "République du Burkina Faso",
-				NumeroPasseport:  "BF5432109",
-				CreatedAt:        time.Date(2025, 6, 18, 9, 45, 0, 0, time.UTC),
-				UpdatedAt:        time.Date(2025, 6, 18, 9, 45, 0, 0, time.UTC),
-			},
-		},
-		{
-			NumeroIdentifiant: "MIG2025004",
-			Identite: models.Identite{
-				UUID:             utils.GenerateUUID(),
-				Nom:              "TRAORE",
-				Prenom:           "Aïssata",
-				DateNaissance:    time.Date(1985, 8, 22, 0, 0, 0, 0, time.UTC),
-				LieuNaissance:    "Bamako",
-				Sexe:             "F",
-				Nationalite:      "Malienne",
-				Adresse:          "Boulevard Triomphal, N°78",
-				Profession:       "Enseignante",
-				PaysEmetteur:     "Mali",
-				AutoriteEmetteur: "République du Mali",
-				NumeroPasseport:  "ML9876543",
-				CreatedAt:        time.Date(2025, 6, 25, 16, 20, 0, 0, time.UTC),
-				UpdatedAt:        time.Date(2025, 6, 25, 16, 20, 0, 0, time.UTC),
-			},
-		},
-		{
-			NumeroIdentifiant: "MIG2025005",
-			Identite: models.Identite{
-				UUID:             utils.GenerateUUID(),
-				Nom:              "KEITA",
-				Prenom:           "Moussa",
-				DateNaissance:    time.Date(1991, 11, 7, 0, 0, 0, 0, time.UTC),
-				LieuNaissance:    "Kayes",
-				Sexe:             "M",
-				Nationalite:      "Malienne",
-				Adresse:          "Quartier Matete, Avenue des Usines",
-				Profession:       "Mécanicien",
-				PaysEmetteur:     "Mali",
-				AutoriteEmetteur: "République du Mali",
-				NumeroPasseport:  "ML7654321",
-				CreatedAt:        time.Date(2025, 7, 2, 9, 15, 0, 0, time.UTC),
-				UpdatedAt:        time.Date(2025, 7, 2, 9, 15, 0, 0, time.UTC),
-			},
-		},
-		// === DÉPLACÉS INTERNES RDC ===
-		{
-			NumeroIdentifiant: "DPI2025001",
-			Identite: models.Identite{
-				UUID:             utils.GenerateUUID(),
-				Nom:              "KABILA",
-				Prenom:           "Jean-Pierre",
-				DateNaissance:    time.Date(1982, 4, 15, 0, 0, 0, 0, time.UTC),
-				LieuNaissance:    "Goma",
-				Sexe:             "M",
-				Nationalite:      "Congolaise (RDC)",
-				Adresse:          "Camp de déplacés, Goma",
-				Profession:       "Cultivateur",
-				PaysEmetteur:     "République Démocratique du Congo",
-				AutoriteEmetteur: "République Démocratique du Congo",
-				NumeroPasseport:  "CD1234567890",
-				CreatedAt:        time.Date(2025, 6, 8, 14, 0, 0, 0, time.UTC),
-				UpdatedAt:        time.Date(2025, 6, 8, 14, 0, 0, 0, time.UTC),
-			},
-		},
-		{
-			NumeroIdentifiant: "DPI2025002",
-			Identite: models.Identite{
-				UUID:             utils.GenerateUUID(),
-				Nom:              "MULAMBA",
-				Prenom:           "Grace",
-				DateNaissance:    time.Date(1990, 8, 23, 0, 0, 0, 0, time.UTC),
-				LieuNaissance:    "Butembo",
-				Sexe:             "F",
-				Nationalite:      "Congolaise (RDC)",
-				Adresse:          "Site de déplacement, Bunia",
-				Profession:       "Commerçante",
-				PaysEmetteur:     "République Démocratique du Congo",
-				AutoriteEmetteur: "République Démocratique du Congo",
-				NumeroPasseport:  "CD9876543210",
-				CreatedAt:        time.Date(2025, 6, 15, 11, 30, 0, 0, time.UTC),
-				UpdatedAt:        time.Date(2025, 6, 15, 11, 30, 0, 0, time.UTC),
-			},
-		},
+		{"Kinshasa", -4.3317, 15.3139},
+		{"Lubumbashi", -11.6792, 27.4847},
+		{"Goma", -1.6792, 29.2228},
+		{"Bukavu", -2.5078, 28.8617},
+		{"Bunia", 1.5593, 30.0944},
+		{"Matadi", -5.8386, 13.4644},
+		{"Kasumbalesa", -10.3667, 28.0167},
 	}
 
-	// Créer les identités en base
-	for _, item := range identites {
-		if err := db.Create(&item.Identite).Error; err != nil {
-			log.Printf("Erreur lors de la création de l'identité %s: %v", item.NumeroIdentifiant, err)
+	nationalites := []struct {
+		Pays             string
+		AutoriteEmetteur string
+		PrefixePasseport string
+		LieuxNaissance   []string
+	}{
+		{"Congolaise (RDC)", "République Démocratique du Congo", "CD", []string{"Kinshasa", "Goma", "Lubumbashi", "Bukavu", "Bunia"}},
+		{"Rwandaise", "République du Rwanda", "RW", []string{"Kigali", "Butare", "Gisenyi"}},
+		{"Burundaise", "République du Burundi", "BI", []string{"Bujumbura", "Gitega", "Ngozi"}},
+		{"Ougandaise", "République de l'Ouganda", "UG", []string{"Kampala", "Entebbe", "Gulu"}},
+		{"Sud-Soudanaise", "République du Soudan du Sud", "SS", []string{"Djouba", "Wau", "Malakal"}},
+	}
+
+	professions := []string{"Commerçant(e)", "Agriculteur", "Enseignant(e)", "Infirmier(ère)",
+		"Mécanicien", "Chauffeur", "Couturier(ère)", "Menuisier", "Cultivateur", "Éleveur",
+		"Pêcheur", "Artisan", "Ouvrier", "Vendeur(se)"}
+
+	// Générer 50 identités réparties sur 6 mois (janvier à juin 2025)
+	baseDate := time.Date(2025, 1, 1, 8, 0, 0, 0, time.UTC)
+
+	for i := 1; i <= 50; i++ {
+		nat := nationalites[rand.Intn(len(nationalites))]
+		ville := villes[rand.Intn(len(villes))]
+
+		// Distribution temporelle réaliste (plus de migrants récents)
+		daysOffset := rand.Intn(180)  // 6 mois
+		heuresOffset := rand.Intn(10) // heures de bureau 8h-18h
+		createdAt := baseDate.AddDate(0, 0, daysOffset).Add(time.Hour * time.Duration(heuresOffset))
+
+		numeroIdentifiant := fmt.Sprintf("MIG2025%03d", i)
+
+		identite := models.Identite{
+			UUID:             utils.GenerateUUID(),
+			Nom:              noms[rand.Intn(len(noms))],
+			Prenom:           prenoms[rand.Intn(len(prenoms))],
+			DateNaissance:    time.Date(1970+rand.Intn(35), time.Month(rand.Intn(12)+1), rand.Intn(28)+1, 0, 0, 0, 0, time.UTC),
+			LieuNaissance:    nat.LieuxNaissance[rand.Intn(len(nat.LieuxNaissance))],
+			Sexe:             []string{"M", "F"}[rand.Intn(2)],
+			Nationalite:      nat.Pays,
+			Adresse:          fmt.Sprintf("Avenue %s, N°%d, %s", []string{"Kasavubu", "Lumumba", "Mobutu", "de la Libération"}[rand.Intn(4)], rand.Intn(200)+1, ville.Nom),
+			Profession:       professions[rand.Intn(len(professions))],
+			PaysEmetteur:     nat.AutoriteEmetteur,
+			AutoriteEmetteur: nat.AutoriteEmetteur,
+			NumeroPasseport:  fmt.Sprintf("%s%07d", nat.PrefixePasseport, rand.Intn(9999999)),
+			CreatedAt:        createdAt,
+			UpdatedAt:        createdAt,
+		}
+
+		if err := db.Create(&identite).Error; err != nil {
+			log.Printf("Erreur lors de la création de l'identité %s: %v", numeroIdentifiant, err)
 			continue
 		}
-		identiteMap[item.NumeroIdentifiant] = item.Identite.UUID
+		identiteMap[numeroIdentifiant] = identite.UUID
 	}
 
-	log.Printf("✅ %d identités créées", len(identiteMap))
+	log.Printf("✅ %d identités créées sur 6 mois", len(identiteMap))
 	return identiteMap, nil
-}
-
-// createMigrantWithIdentite crée une identité et un migrant associé
-func createMigrantWithIdentite(
-	db *gorm.DB, identiteData models.Identite, migrantData models.Migrant) error {
-	// Créer l'identité
-	identiteData.UUID = utils.GenerateUUID()
-	identiteData.CreatedAt = migrantData.CreatedAt
-	identiteData.UpdatedAt = migrantData.UpdatedAt
-
-	if err := db.Create(&identiteData).Error; err != nil {
-		return fmt.Errorf("erreur création identité: %v", err)
-	}
-
-	// Créer le migrant avec la référence à l'identité
-	migrantData.IdentiteUUID = identiteData.UUID
-	if err := db.Create(&migrantData).Error; err != nil {
-		return fmt.Errorf("erreur création migrant: %v", err)
-	}
-
-	return nil
 }
 
 // simulateMigrants crée des migrants simulés et les associe aux identités
 func simulateMigrants(db *gorm.DB, identiteMap map[string]string) error {
-	migrants := []models.Migrant{
-		// === MIGRANTS INTERNATIONAUX - JUIN 2025 ===
-		{
-			UUID:                  utils.GenerateUUID(),
-			NumeroIdentifiant:     "MIG2025001",
-			IdentiteUUID:          identiteMap["MIG2025001"],
-			Telephone:             "+22670123456",
-			Email:                 "amadou.ouedraogo@email.com",
-			AdresseActuelle:       "Avenue Kasavubu, N°45",
-			VilleActuelle:         "Kinshasa",
-			PaysActuel:            "République Démocratique du Congo",
-			SituationMatrimoniale: "marie",
-			NombreEnfants:         2,
-			StatutMigratoire:      "regulier",
-			DateEntree:            &[]time.Time{time.Date(2025, 6, 5, 0, 0, 0, 0, time.UTC)}[0],
-			PointEntree:           "Aéroport de N'djili",
-			PaysDestination:       "République Démocratique du Congo",
-			CreatedAt:             time.Date(2025, 6, 5, 10, 30, 0, 0, time.UTC),
-			UpdatedAt:             time.Date(2025, 6, 5, 10, 30, 0, 0, time.UTC),
-		},
-		{
-			UUID:                  utils.GenerateUUID(),
-			NumeroIdentifiant:     "MIG2025002",
-			IdentiteUUID:          identiteMap["MIG2025002"],
-			Telephone:             "+22675789123",
-			Email:                 "fanta.sankara@email.com",
-			AdresseActuelle:       "Avenue de la Justice, N°78",
-			VilleActuelle:         "Kinshasa",
-			PaysActuel:            "République Démocratique du Congo",
-			SituationMatrimoniale: "celibataire",
-			NombreEnfants:         1,
-			StatutMigratoire:      "regulier",
-			DateEntree:            &[]time.Time{time.Date(2025, 6, 12, 0, 0, 0, 0, time.UTC)}[0],
-			PointEntree:           "Aéroport de N'djili",
-			PaysDestination:       "République Démocratique du Congo",
-			CreatedAt:             time.Date(2025, 6, 12, 14, 15, 0, 0, time.UTC),
-			UpdatedAt:             time.Date(2025, 6, 12, 14, 15, 0, 0, time.UTC),
-		},
-		{
-			UUID:                  utils.GenerateUUID(),
-			NumeroIdentifiant:     "MIG2025003",
-			IdentiteUUID:          identiteMap["MIG2025003"],
-			Telephone:             "+22678345612",
-			Email:                 "rasmane.zongo@email.com",
-			AdresseActuelle:       "Commune de Bandalungwa, Rue 15",
-			VilleActuelle:         "Kinshasa",
-			PaysActuel:            "République Démocratique du Congo",
-			SituationMatrimoniale: "marie",
-			NombreEnfants:         3,
-			StatutMigratoire:      "demandeur_asile",
-			DateEntree:            &[]time.Time{time.Date(2025, 6, 18, 0, 0, 0, 0, time.UTC)}[0],
-			PointEntree:           "Frontière de Bangui",
-			PaysDestination:       "République Démocratique du Congo",
-			CreatedAt:             time.Date(2025, 6, 18, 9, 45, 0, 0, time.UTC),
-			UpdatedAt:             time.Date(2025, 6, 18, 9, 45, 0, 0, time.UTC),
-		},
-		{
-			UUID:                  utils.GenerateUUID(),
-			NumeroIdentifiant:     "MIG2025004",
-			IdentiteUUID:          identiteMap["MIG2025004"],
-			Telephone:             "+22365123456",
-			Email:                 "aissata.traore@email.com",
-			AdresseActuelle:       "Boulevard Triomphal, N°78",
-			VilleActuelle:         "Kinshasa",
-			PaysActuel:            "République Démocratique du Congo",
-			SituationMatrimoniale: "celibataire",
-			NombreEnfants:         0,
-			StatutMigratoire:      "demandeur_asile",
-			DateEntree:            &[]time.Time{time.Date(2025, 6, 25, 0, 0, 0, 0, time.UTC)}[0],
-			PointEntree:           "Frontière de Bangui",
-			PaysDestination:       "République Démocratique du Congo",
-			CreatedAt:             time.Date(2025, 6, 25, 16, 20, 0, 0, time.UTC),
-			UpdatedAt:             time.Date(2025, 6, 25, 16, 20, 0, 0, time.UTC),
-		},
-		{
-			UUID:                  utils.GenerateUUID(),
-			NumeroIdentifiant:     "MIG2025005",
-			IdentiteUUID:          identiteMap["MIG2025005"],
-			Telephone:             "+22376543210",
-			Email:                 "moussa.keita@email.com",
-			AdresseActuelle:       "Commune de Barumbu, Rue 24",
-			VilleActuelle:         "Kinshasa",
-			PaysActuel:            "République Démocratique du Congo",
-			SituationMatrimoniale: "marie",
-			NombreEnfants:         2,
-			StatutMigratoire:      "regulier",
-			DateEntree:            &[]time.Time{time.Date(2025, 7, 2, 0, 0, 0, 0, time.UTC)}[0],
-			PointEntree:           "Aéroport de N'djili",
-			PaysDestination:       "République Démocratique du Congo",
-			CreatedAt:             time.Date(2025, 7, 2, 9, 15, 0, 0, time.UTC),
-			UpdatedAt:             time.Date(2025, 7, 2, 9, 15, 0, 0, time.UTC),
-		},
+	// Récupérer toutes les identités créées
+	var identites []models.Identite
+	if err := db.Find(&identites).Error; err != nil {
+		return err
+	}
 
-		// === DÉPLACÉS INTERNES RDC ===
-		{
+	villes := []struct {
+		Nom         string
+		PointEntree string
+	}{
+		{"Kinshasa", "Aéroport de N'djili"},
+		{"Lubumbashi", "Aéroport de Luano"},
+		{"Goma", "Frontière de Gisenyi (Rwanda)"},
+		{"Bukavu", "Frontière de Cyangugu (Rwanda)"},
+		{"Bunia", "Frontière de Mahagi (Ouganda)"},
+		{"Matadi", "Port de Matadi"},
+		{"Kasumbalesa", "Frontière de Kasumbalesa (Zambie)"},
+	}
+
+	statutsMigratoires := []string{"regulier", "irregulier", "demandeur_asile", "refugie", "deplace_interne"}
+	situationsMatrimoniales := []string{"celibataire", "marie", "divorce", "veuf"}
+
+	var migrants []models.Migrant
+
+	for i, identite := range identites {
+		numeroIdentifiant := fmt.Sprintf("MIG2025%03d", i+1)
+		ville := villes[rand.Intn(len(villes))]
+
+		// Date d'entrée quelques jours avant la création de l'identité
+		dateEntree := identite.CreatedAt.AddDate(0, 0, -rand.Intn(30))
+
+		migrant := models.Migrant{
 			UUID:                  utils.GenerateUUID(),
-			NumeroIdentifiant:     "DPI2025001",
-			IdentiteUUID:          identiteMap["DPI2025001"],
-			Telephone:             "+243998765432",
-			Email:                 "jp.kabila@email.cd",
-			AdresseActuelle:       "Commune de Kimbanseke, Avenue des Poids Lourds",
-			VilleActuelle:         "Kinshasa",
+			NumeroIdentifiant:     numeroIdentifiant,
+			IdentiteUUID:          identite.UUID,
+			Telephone:             fmt.Sprintf("+243%d%08d", rand.Intn(2)+8, rand.Intn(99999999)),
+			Email:                 fmt.Sprintf("%s.%s@email.com", identite.Prenom, identite.Nom),
+			AdresseActuelle:       identite.Adresse,
+			VilleActuelle:         ville.Nom,
 			PaysActuel:            "République Démocratique du Congo",
-			SituationMatrimoniale: "marie",
-			NombreEnfants:         5,
-			PersonneContact:       "KABILA Marie",
-			TelephoneContact:      "+243812345678",
-			StatutMigratoire:      "deplace_interne",
-			DateEntree:            &[]time.Time{time.Date(2025, 6, 8, 0, 0, 0, 0, time.UTC)}[0],
-			PointEntree:           "Déplacement depuis Goma suite aux conflits",
+			SituationMatrimoniale: situationsMatrimoniales[rand.Intn(len(situationsMatrimoniales))],
+			NombreEnfants:         rand.Intn(6),
+			StatutMigratoire:      statutsMigratoires[rand.Intn(len(statutsMigratoires))],
+			DateEntree:            &dateEntree,
+			PointEntree:           ville.PointEntree,
 			PaysDestination:       "République Démocratique du Congo",
-			CreatedAt:             time.Date(2025, 6, 8, 14, 0, 0, 0, time.UTC),
-			UpdatedAt:             time.Date(2025, 6, 8, 14, 0, 0, 0, time.UTC),
-		},
-		{
-			UUID:                  utils.GenerateUUID(),
-			NumeroIdentifiant:     "DPI2025002",
-			IdentiteUUID:          identiteMap["DPI2025002"],
-			Telephone:             "+243823456789",
-			Email:                 "grace.mulamba@email.cd",
-			AdresseActuelle:       "Commune de N'sele, Camp de déplacés UNHCR",
-			VilleActuelle:         "Kinshasa",
-			PaysActuel:            "République Démocratique du Congo",
-			SituationMatrimoniale: "veuf",
-			NombreEnfants:         3,
-			PersonneContact:       "MULAMBA Joseph",
-			TelephoneContact:      "+243897654321",
-			StatutMigratoire:      "deplace_interne",
-			DateEntree:            &[]time.Time{time.Date(2025, 6, 15, 0, 0, 0, 0, time.UTC)}[0],
-			PointEntree:           "Fuite de Butembo suite aux violences",
-			PaysDestination:       "République Démocratique du Congo",
-			CreatedAt:             time.Date(2025, 6, 15, 11, 30, 0, 0, time.UTC),
-			UpdatedAt:             time.Date(2025, 6, 15, 11, 30, 0, 0, time.UTC),
-		},
+			CreatedAt:             identite.CreatedAt,
+			UpdatedAt:             identite.UpdatedAt,
+		}
+
+		// Ajouter contact pour les déplacés internes
+		if migrant.StatutMigratoire == "deplace_interne" {
+			migrant.PersonneContact = fmt.Sprintf("%s Contact", identite.Nom)
+			migrant.TelephoneContact = fmt.Sprintf("+243%d%08d", rand.Intn(2)+8, rand.Intn(99999999))
+		}
+
+		migrants = append(migrants, migrant)
 	}
 
 	// Créer les migrants en base
@@ -611,90 +449,74 @@ func simulateMigrants(db *gorm.DB, identiteMap map[string]string) error {
 	return nil
 }
 
-// simulateGeolocalisations crée des géolocalisations simulées
+// simulateGeolocalisations crée des géolocalisations simulées avec coordonnées GPS réelles de la RDC
 func simulateGeolocalisations(db *gorm.DB, identiteMap map[string]string) error {
-	geolocalisations := []models.Geolocalisation{
-		{
-			UUID:         utils.GenerateUUID(),
-			IdentiteUUID: identiteMap["MIG2025001"],
-			Latitude:     -4.3317,
-			Longitude:    15.3139,
-			CreatedAt:    time.Now(),
-			UpdatedAt:    time.Now(),
-		},
-		{
-			UUID:         utils.GenerateUUID(),
-			IdentiteUUID: identiteMap["MIG2025002"],
-			Latitude:     -4.3728,
-			Longitude:    15.2663,
-			CreatedAt:    time.Now(),
-			UpdatedAt:    time.Now(),
-		},
-		{
-			UUID:         utils.GenerateUUID(),
-			IdentiteUUID: identiteMap["MIG2025003"],
-			Latitude:     48.8566,
-			Longitude:    2.3522,
-			CreatedAt:    time.Now(),
-			UpdatedAt:    time.Now(),
-		},
-		{
-			UUID:         utils.GenerateUUID(),
-			IdentiteUUID: identiteMap["MIG2025004"],
-			Latitude:     50.8503,
-			Longitude:    4.3517,
-			CreatedAt:    time.Now(),
-			UpdatedAt:    time.Now(),
-		},
-		// === GÉOLOCALISATIONS POUR DÉPLACÉS INTERNES RDC ===
-		{
-			UUID:         utils.GenerateUUID(),
-			IdentiteUUID: identiteMap["MIG2025005"], // Jeanne KABILA
-			Latitude:     -1.6792,
-			Longitude:    29.2228,
-			CreatedAt:    time.Now(),
-			UpdatedAt:    time.Now(),
-		},
-		{
-			UUID:         utils.GenerateUUID(),
-			IdentiteUUID: identiteMap["MIG2025005"], // Jeanne KABILA - Lieu d'origine
-			Latitude:     -1.1853,
-			Longitude:    29.2441,
-			CreatedAt:    time.Now(),
-			UpdatedAt:    time.Now(),
-		},
-		{
-			UUID:         utils.GenerateUUID(),
-			IdentiteUUID: identiteMap["MIG2025006"], // Jean-Baptiste MBUYI
-			Latitude:     -4.3317,
-			Longitude:    15.3139,
-			CreatedAt:    time.Now(),
-			UpdatedAt:    time.Now(),
-		},
-		{
-			UUID:         utils.GenerateUUID(),
-			IdentiteUUID: identiteMap["MIG2025007"], // Espérance NGOY
-			Latitude:     1.5593,
-			Longitude:    30.0944,
-			CreatedAt:    time.Now(),
-			UpdatedAt:    time.Now(),
-		},
-		{
-			UUID:         utils.GenerateUUID(),
-			IdentiteUUID: identiteMap["MIG2025008"], // Patient KASONGO
-			Latitude:     -4.3728,
-			Longitude:    15.2663,
-			CreatedAt:    time.Now(),
-			UpdatedAt:    time.Now(),
-		},
-		{
-			UUID:         utils.GenerateUUID(),
-			IdentiteUUID: identiteMap["MIG2025008"], // Patient KASONGO - Lieu d'origine
-			Latitude:     0.4951,
-			Longitude:    29.4721,
-			CreatedAt:    time.Now(),
-			UpdatedAt:    time.Now(),
-		},
+	// Récupérer toutes les identités
+	var identites []models.Identite
+	if err := db.Find(&identites).Error; err != nil {
+		return err
+	}
+
+	// Villes de la RDC avec coordonnées GPS réelles et variations
+	villes := []struct {
+		Nom        string
+		LatBase    float64
+		LngBase    float64
+		LatRadius  float64 // Rayon pour variation de latitude
+		LngRadius  float64 // Rayon pour variation de longitude
+		Proportion float64 // Proportion de migrants dans cette ville
+	}{
+		{"Kinshasa", -4.3317, 15.3139, 0.15, 0.15, 0.35},     // 35% - Capitale
+		{"Goma", -1.6792, 29.2228, 0.05, 0.05, 0.20},         // 20% - Zone de conflit
+		{"Lubumbashi", -11.6792, 27.4847, 0.10, 0.10, 0.15},  // 15% - Centre minier
+		{"Bukavu", -2.5078, 28.8617, 0.05, 0.05, 0.12},       // 12% - Frontière Rwanda
+		{"Bunia", 1.5593, 30.0944, 0.03, 0.03, 0.10},         // 10% - Ituri
+		{"Kasumbalesa", -10.3667, 28.0167, 0.02, 0.02, 0.05}, // 5% - Frontière Zambie
+		{"Matadi", -5.8386, 13.4644, 0.04, 0.04, 0.03},       // 3% - Port
+	}
+
+	var geolocalisations []models.Geolocalisation
+
+	// Attribution des villes basée sur les proportions
+	villeIndex := 0
+	cumul := 0.0
+
+	for _, identite := range identites {
+		// Sélectionner une ville selon la proportion
+		randValue := rand.Float64()
+		cumul = 0.0
+		for i, v := range villes {
+			cumul += v.Proportion
+			if randValue <= cumul {
+				villeIndex = i
+				break
+			}
+		}
+
+		ville := villes[villeIndex]
+
+		// Générer 2-4 positions de géolocalisation par identité pour montrer les déplacements
+		numPositions := rand.Intn(3) + 2
+
+		for i := 0; i < numPositions; i++ {
+			// Variation aléatoire autour du centre de la ville
+			latVariation := (rand.Float64()*2 - 1) * ville.LatRadius
+			lngVariation := (rand.Float64()*2 - 1) * ville.LngRadius
+
+			// Date de capture étalée sur plusieurs semaines
+			dateCapture := identite.CreatedAt.AddDate(0, 0, i*rand.Intn(15)+1)
+
+			geo := models.Geolocalisation{
+				UUID:         utils.GenerateUUID(),
+				IdentiteUUID: identite.UUID,
+				Latitude:     ville.LatBase + latVariation,
+				Longitude:    ville.LngBase + lngVariation,
+				CreatedAt:    dateCapture,
+				UpdatedAt:    dateCapture,
+			}
+
+			geolocalisations = append(geolocalisations, geo)
+		}
 	}
 
 	// Insérer en base
@@ -705,11 +527,15 @@ func simulateGeolocalisations(db *gorm.DB, identiteMap map[string]string) error 
 		}
 	}
 
-	log.Printf("✅ %d géolocalisations créées", len(geolocalisations))
+	log.Printf("✅ %d géolocalisations créées à travers la RDC", len(geolocalisations))
+	log.Println("📍 Distribution géographique:")
+	for _, v := range villes {
+		log.Printf("   - %s: %.0f%%", v.Nom, v.Proportion*100)
+	}
 	return nil
 }
 
-// simulateMotifDeplacements crée des motifs de déplacement simulés
+// simulateMotifDeplacements crée des motifs de déplacement simulés réalistes
 func simulateMotifDeplacements(db *gorm.DB) error {
 	// Récupérer les migrants existants
 	var migrants []models.Migrant
@@ -721,92 +547,90 @@ func simulateMotifDeplacements(db *gorm.DB) error {
 		return nil
 	}
 
-	motifDeplacements := []models.MotifDeplacement{
-		{
-			UUID:                utils.GenerateUUID(),
-			MigrantUUID:         migrants[0].UUID,
-			TypeMotif:           "economique",
-			MotifPrincipal:      "Recherche d'opportunités d'emploi mieux rémunérées",
-			MotifSecondaire:     "Diversification des activités commerciales",
-			Description:         "Commerçant burkinabè cherchant à développer son commerce de produits artisanaux et textiles au Congo.",
-			CaractereVolontaire: true,
-			Urgence:             "faible",
-			DateDeclenchement:   time.Date(2023, 12, 1, 0, 0, 0, 0, time.UTC),
-			DureeEstimee:        365,
-			CreatedAt:           time.Now(),
-			UpdatedAt:           time.Now(),
+	// Motifs réalistes par type
+	motifsParType := map[string][]struct {
+		Principal   string
+		Secondaire  string
+		Description string
+		Volontaire  bool
+		Urgence     string
+		DureeJours  int
+	}{
+		"economique": {
+			{"Recherche d'opportunités d'emploi", "Amélioration des conditions de vie", "Migration économique vers les centres urbains pour trouver du travail dans le secteur formel ou informel.", true, "moyenne", 730},
+			{"Activités commerciales transfrontalières", "Commerce et négoce", "Commerçant effectuant des va-et-vient pour activités commerciales entre pays limitrophes.", true, "faible", 365},
+			{"Formation professionnelle", "Développement des compétences", "Migration pour suivre une formation ou des études supérieures.", true, "faible", 1095},
 		},
-		{
-			UUID:                utils.GenerateUUID(),
-			MigrantUUID:         migrants[1].UUID,
-			TypeMotif:           "politique",
-			MotifPrincipal:      "Instabilité politique et menaces sécuritaires au Mali",
-			MotifSecondaire:     "Protection de la famille",
-			Description:         "Fuit l'instabilité politique au Mali suite aux coups d'État successifs.",
-			CaractereVolontaire: false,
-			Urgence:             "elevee",
-			DateDeclenchement:   time.Date(2023, 10, 15, 0, 0, 0, 0, time.UTC),
-			DureeEstimee:        730,
-			CreatedAt:           time.Now(),
-			UpdatedAt:           time.Now(),
+		"politique": {
+			{"Conflits armés et violences", "Protection de la vie et de la famille", "Fuite des zones de conflit armé impliquant des groupes rebelles, violence contre les civils.", false, "critique", 1460},
+			{"Violences intercommunautaires", "Tensions ethniques", "Déplacement forcé suite à des affrontements entre communautés ethniques.", false, "elevee", 1095},
+			{"Persécutions politiques", "Activisme et opinions politiques", "Menaces liées aux opinions politiques ou à l'activisme.", false, "elevee", 1825},
 		},
-		// === MOTIFS POUR DÉPLACÉS INTERNES RDC ===
-		{
-			UUID:                utils.GenerateUUID(),
-			MigrantUUID:         migrants[4].UUID, // Jeanne KABILA
-			TypeMotif:           "politique",
-			MotifPrincipal:      "Violences intercommunautaires dans le Nord-Kivu",
-			MotifSecondaire:     "Protection de la famille et des enfants",
-			Description:         "Conflits armés entre groupes rebelles dans la région de Rutshuru. Violences contre les civils, pillages et menaces directes contre la famille.",
-			CaractereVolontaire: false,
-			Urgence:             "critique",
-			DateDeclenchement:   time.Date(2023, 9, 1, 0, 0, 0, 0, time.UTC),
-			DureeEstimee:        1095, // 3 ans
-			CreatedAt:           time.Now(),
-			UpdatedAt:           time.Now(),
+		"securite": {
+			{"Attaques de groupes armés", "Violences et pillages", "Attaques répétées par des groupes armés non étatiques, massacres de civils.", false, "critique", 1460},
+			{"Insécurité généralisée", "Crimes et violences", "Zone devenue trop dangereuse pour y vivre en sécurité.", false, "elevee", 1095},
+			{"Enlèvements et kidnappings", "Menaces directes", "Vague d'enlèvements ciblant certaines communautés.", false, "critique", 730},
 		},
-		{
-			UUID:                utils.GenerateUUID(),
-			MigrantUUID:         migrants[5].UUID, // Jean-Baptiste MBUYI
-			TypeMotif:           "economique",
-			MotifPrincipal:      "Effondrement de l'activité minière artisanale",
-			MotifSecondaire:     "Recherche d'opportunités d'emploi à Kinshasa",
-			Description:         "Fermeture des sites miniers artisanaux dans la région de Kananga due à l'épuisement des ressources et aux conflits. Migration vers Kinshasa pour chercher du travail.",
-			CaractereVolontaire: true,
-			Urgence:             "moyenne",
-			DateDeclenchement:   time.Date(2024, 1, 10, 0, 0, 0, 0, time.UTC),
-			DureeEstimee:        730, // 2 ans
-			CreatedAt:           time.Now(),
-			UpdatedAt:           time.Now(),
+		"environnement": {
+			{"Catastrophes naturelles", "Inondations et érosions", "Déplacement suite à des inondations, glissements de terrain ou érosions massives.", false, "elevee", 365},
+			{"Éruptions volcaniques", "Catastrophe naturelle", "Fuite suite à l'éruption du volcan Nyiragongo.", false, "critique", 545},
 		},
-		{
-			UUID:                utils.GenerateUUID(),
-			MigrantUUID:         migrants[6].UUID, // Espérance NGOY
-			TypeMotif:           "politique",
-			MotifPrincipal:      "Violences ethniques dans l'Ituri",
-			MotifSecondaire:     "Menaces et intimidations",
-			Description:         "Conflits ethniques entre communautés Hema et Lendu dans la région de Djugu. Massacres, destructions de villages et ciblage des jeunes femmes.",
-			CaractereVolontaire: false,
-			Urgence:             "critique",
-			DateDeclenchement:   time.Date(2023, 11, 28, 0, 0, 0, 0, time.UTC),
-			DureeEstimee:        1460, // 4 ans
-			CreatedAt:           time.Now(),
-			UpdatedAt:           time.Now(),
+		"sante": {
+			{"Épidémies", "Accès aux soins médicaux", "Recherche de meilleurs soins suite à épidémie (Ebola, choléra).", true, "elevee", 180},
+			{"Soins médicaux spécialisés", "Traitement médical", "Migration temporaire pour accès à des soins spécialisés.", true, "moyenne", 90},
 		},
-		{
-			UUID:                utils.GenerateUUID(),
-			MigrantUUID:         migrants[7].UUID, // Patient KASONGO
-			TypeMotif:           "securite",
-			MotifPrincipal:      "Attaques des groupes armés ADF dans la région de Beni",
-			MotifSecondaire:     "Protection de la famille nombreuse",
-			Description:         "Attaques répétées des Forces Démocratiques Alliées (ADF) dans la région de Beni. Massacres de civils, enlèvements et destructions de biens. Fuite urgente avec toute la famille.",
-			CaractereVolontaire: false,
-			Urgence:             "critique",
-			DateDeclenchement:   time.Date(2023, 6, 10, 0, 0, 0, 0, time.UTC),
-			DureeEstimee:        1825, // 5 ans
-			CreatedAt:           time.Now(),
-			UpdatedAt:           time.Now(),
+		"familial": {
+			{"Regroupement familial", "Réunification avec la famille", "Migration pour rejoindre des membres de la famille déjà installés.", true, "faible", 365},
+			{"Mariage", "Union matrimoniale", "Migration suite à un mariage dans une autre ville ou pays.", true, "faible", 730},
 		},
+	}
+
+	var motifDeplacements []models.MotifDeplacement
+
+	typesMotifs := []string{"economique", "politique", "securite", "environnement", "sante", "familial"}
+
+	// Créer des motifs variés pour chaque migrant
+	for _, migrant := range migrants {
+		// Sélection du type de motif selon le statut migratoire
+		var typeMotif string
+		switch migrant.StatutMigratoire {
+		case "deplace_interne", "refugie", "demandeur_asile":
+			// Plus de motifs politiques et de sécurité
+			typeMotif = []string{"politique", "politique", "securite", "securite", "environnement"}[rand.Intn(5)]
+		case "irregulier":
+			// Plus de motifs économiques
+			typeMotif = []string{"economique", "economique", "economique", "familial"}[rand.Intn(4)]
+		default: // regulier
+			typeMotif = typesMotifs[rand.Intn(len(typesMotifs))]
+		}
+
+		motifs := motifsParType[typeMotif]
+		motif := motifs[rand.Intn(len(motifs))]
+
+		// Date de déclenchement avant la date d'entrée
+		var dateDeclenchement time.Time
+		if migrant.DateEntree != nil {
+			dateDeclenchement = migrant.DateEntree.AddDate(0, 0, -rand.Intn(60)-30) // 1-3 mois avant
+		} else {
+			dateDeclenchement = migrant.CreatedAt.AddDate(0, 0, -rand.Intn(90))
+		}
+
+		motifDeplacement := models.MotifDeplacement{
+			UUID:                utils.GenerateUUID(),
+			MigrantUUID:         migrant.UUID,
+			TypeMotif:           typeMotif,
+			MotifPrincipal:      motif.Principal,
+			MotifSecondaire:     motif.Secondaire,
+			Description:         motif.Description,
+			CaractereVolontaire: motif.Volontaire,
+			Urgence:             motif.Urgence,
+			DateDeclenchement:   dateDeclenchement,
+			DureeEstimee:        motif.DureeJours + rand.Intn(365), // +/- 1 an de variation
+			CreatedAt:           migrant.CreatedAt,
+			UpdatedAt:           migrant.UpdatedAt,
+		}
+
+		motifDeplacements = append(motifDeplacements, motifDeplacement)
 	}
 
 	// Insérer en base
@@ -818,10 +642,21 @@ func simulateMotifDeplacements(db *gorm.DB) error {
 	}
 
 	log.Printf("✅ %d motifs de déplacement créés", len(motifDeplacements))
+
+	// Statistiques par type
+	stats := make(map[string]int)
+	for _, m := range motifDeplacements {
+		stats[m.TypeMotif]++
+	}
+	log.Println("📊 Distribution par type de motif:")
+	for type_, count := range stats {
+		log.Printf("   - %s: %d (%.1f%%)", type_, count, float64(count)/float64(len(motifDeplacements))*100)
+	}
+
 	return nil
 }
 
-// simulateBiometries crée des données biométriques simulées
+// simulateBiometries crée des données biométriques simulées réalistes
 func simulateBiometries(db *gorm.DB) error {
 	// Récupérer les migrants existants
 	var migrants []models.Migrant
@@ -833,70 +668,94 @@ func simulateBiometries(db *gorm.DB) error {
 		return nil
 	}
 
-	// Fonction pour générer des données biométriques simulées
-	generateBiometricData := func(dataType string, index int) string {
-		var data string
-		switch dataType {
-		case "empreinte_digitale":
-			data = fmt.Sprintf("FINGERPRINT_DATA_%d_%d", index, rand.Intn(10000))
-		case "reconnaissance_faciale":
-			data = fmt.Sprintf("FACIAL_RECOGNITION_DATA_%d", rand.Intn(10000))
-		}
-		return base64.StdEncoding.EncodeToString([]byte(data))
+	dispositifs := []string{
+		"Scanner biométrique SecuGen Hamster Pro 20",
+		"Lecteur d'empreintes digitales Morpho MSO 1300 E3",
+		"Caméra de reconnaissance faciale HikVision DeepinMind",
+		"Scanner iris IrisGuard IG-AD100",
 	}
+
+	qualites := []string{"excellente", "bonne", "moyenne"}
 
 	var biometries []models.Biometrie
 
 	// Créer des données biométriques pour chaque migrant
 	for i, migrant := range migrants {
-		// Empreinte digitale
-		bio := models.Biometrie{
-			UUID:                utils.GenerateUUID(),
-			MigrantUUID:         migrant.UUID,
-			TypeBiometrie:       "empreinte_digitale",
-			IndexDoigt:          &[]int{1}[0],
-			QualiteDonnee:       "excellente",
-			DonneesBiometriques: generateBiometricData("empreinte_digitale", 1),
-			AlgorithmeEncodage:  "SHA-256",
-			TailleFichier:       rand.Intn(5000) + 1000,
-			DateCapture:         time.Now().Add(-time.Hour * 24 * time.Duration(rand.Intn(60))),
-			DisposifCapture:     "Scanner biométrique SecuGen",
-			ResolutionCapture:   "500 DPI",
-			OperateurCapture:    fmt.Sprintf("Agent DGM00%d", (i%3)+1),
-			Verifie:             true,
-			ScoreConfiance:      &[]float64{0.95}[0],
-			Chiffre:             true,
-			CleChiffrement:      fmt.Sprintf("AES256_KEY_%s", utils.GenerateUUID()[:8]),
-			CreatedAt:           time.Now(),
-			UpdatedAt:           time.Now(),
+		// Nombre de captures biométriques par migrant (2-3)
+		numCaptures := rand.Intn(2) + 2
+
+		for capture := 0; capture < numCaptures; capture++ {
+			var typeBio string
+			var indexDoigt *int
+			var tailleFichier int
+			var resolution string
+			var algorithme string
+
+			// Alternance entre empreintes et reconnaissance faciale
+			if capture%2 == 0 {
+				typeBio = "empreinte_digitale"
+				doigt := rand.Intn(10) + 1 // Doigts 1-10
+				indexDoigt = &doigt
+				tailleFichier = rand.Intn(3000) + 2000 // 2-5 KB
+				resolution = []string{"500 DPI", "1000 DPI"}[rand.Intn(2)]
+				algorithme = "WSQ (Wavelet Scalar Quantization)"
+			} else {
+				typeBio = "reconnaissance_faciale"
+				tailleFichier = rand.Intn(10000) + 5000 // 5-15 KB
+				resolution = []string{"1920x1080", "1280x720", "640x480"}[rand.Intn(3)]
+				algorithme = "CNN-DeepFace"
+			}
+
+			// Date de capture quelques jours après la création du migrant
+			dateCapture := migrant.CreatedAt.AddDate(0, 0, rand.Intn(7)+1)
+			dateVerification := dateCapture.Add(time.Hour * time.Duration(rand.Intn(4)+1))
+
+			// Qualité basée sur le type de dispositif et l'âge de la capture
+			qualite := qualites[rand.Intn(len(qualites))]
+
+			// Score de confiance basé sur la qualité
+			var scoreConfiance float64
+			switch qualite {
+			case "excellente":
+				scoreConfiance = 0.90 + rand.Float64()*0.10 // 0.90-1.00
+			case "bonne":
+				scoreConfiance = 0.80 + rand.Float64()*0.10 // 0.80-0.90
+			default: // moyenne
+				scoreConfiance = 0.70 + rand.Float64()*0.10 // 0.70-0.80
+			}
+
+			// Données biométriques simulées (encodées en base64)
+			data := fmt.Sprintf("%s_DATA_%s_%d_%d",
+				typeBio,
+				migrant.UUID[:8],
+				capture,
+				rand.Intn(100000))
+			donneesBiometriques := base64.StdEncoding.EncodeToString([]byte(data))
+
+			bio := models.Biometrie{
+				UUID:                utils.GenerateUUID(),
+				MigrantUUID:         migrant.UUID,
+				TypeBiometrie:       typeBio,
+				IndexDoigt:          indexDoigt,
+				QualiteDonnee:       qualite,
+				DonneesBiometriques: donneesBiometriques,
+				AlgorithmeEncodage:  algorithme,
+				TailleFichier:       tailleFichier,
+				DateCapture:         dateCapture,
+				DisposifCapture:     dispositifs[rand.Intn(len(dispositifs))],
+				ResolutionCapture:   resolution,
+				OperateurCapture:    fmt.Sprintf("Agent DGM%03d", (i%5)+1),
+				Verifie:             scoreConfiance >= 0.75, // Vérifié si score >= 75%
+				DateVerification:    &dateVerification,
+				ScoreConfiance:      &scoreConfiance,
+				Chiffre:             true,
+				CleChiffrement:      fmt.Sprintf("AES256_KEY_%s", utils.GenerateUUID()[:16]),
+				CreatedAt:           dateCapture,
+				UpdatedAt:           dateVerification,
+			}
+
+			biometries = append(biometries, bio)
 		}
-		bio.DateVerification = &[]time.Time{bio.DateCapture.Add(time.Hour * 2)}[0]
-
-		biometries = append(biometries, bio)
-
-		// Reconnaissance faciale
-		bio2 := models.Biometrie{
-			UUID:                utils.GenerateUUID(),
-			MigrantUUID:         migrant.UUID,
-			TypeBiometrie:       "reconnaissance_faciale",
-			QualiteDonnee:       "excellente",
-			DonneesBiometriques: generateBiometricData("reconnaissance_faciale", 0),
-			AlgorithmeEncodage:  "CNN-DeepFace",
-			TailleFichier:       rand.Intn(15000) + 5000,
-			DateCapture:         time.Now().Add(-time.Hour * 24 * time.Duration(rand.Intn(30))),
-			DisposifCapture:     "Caméra HD avec capteur infrarouge",
-			ResolutionCapture:   "1920x1080",
-			OperateurCapture:    fmt.Sprintf("Agent DGM00%d", (i%3)+1),
-			Verifie:             true,
-			ScoreConfiance:      &[]float64{0.92}[0],
-			Chiffre:             true,
-			CleChiffrement:      fmt.Sprintf("AES256_KEY_%s", utils.GenerateUUID()[:8]),
-			CreatedAt:           time.Now(),
-			UpdatedAt:           time.Now(),
-		}
-		bio2.DateVerification = &[]time.Time{bio2.DateCapture.Add(time.Hour * 1)}[0]
-
-		biometries = append(biometries, bio2)
 	}
 
 	// Insérer en base
@@ -908,10 +767,34 @@ func simulateBiometries(db *gorm.DB) error {
 	}
 
 	log.Printf("✅ %d données biométriques créées", len(biometries))
+
+	// Statistiques
+	statsType := make(map[string]int)
+	statsQualite := make(map[string]int)
+	totalVerifie := 0
+
+	for _, bio := range biometries {
+		statsType[bio.TypeBiometrie]++
+		statsQualite[bio.QualiteDonnee]++
+		if bio.Verifie {
+			totalVerifie++
+		}
+	}
+
+	log.Println("📊 Distribution des données biométriques:")
+	for type_, count := range statsType {
+		log.Printf("   - %s: %d", type_, count)
+	}
+	log.Println("📊 Qualité des captures:")
+	for qualite, count := range statsQualite {
+		log.Printf("   - %s: %d (%.1f%%)", qualite, count, float64(count)/float64(len(biometries))*100)
+	}
+	log.Printf("✅ Taux de vérification: %.1f%%", float64(totalVerifie)/float64(len(biometries))*100)
+
 	return nil
 }
 
-// simulateAlerts crée des alertes simulées
+// simulateAlerts crée des alertes simulées réalistes
 func simulateAlerts(db *gorm.DB) error {
 	// Récupérer les migrants existants
 	var migrants []models.Migrant
@@ -923,120 +806,98 @@ func simulateAlerts(db *gorm.DB) error {
 		return nil
 	}
 
-	alerts := []models.Alert{
-		{
-			UUID:                utils.GenerateUUID(),
-			MigrantUUID:         migrants[0].UUID,
-			TypeAlerte:          "securite",
-			NiveauGravite:       "warning",
-			Titre:               "Document d'identité expirant bientôt",
-			Description:         "Le passeport de M. KEMBO expire dans 45 jours. Il est urgent de procéder au renouvellement.",
-			Statut:              "active",
-			DateExpiration:      &[]time.Time{time.Now().Add(time.Hour * 24 * 45)}[0],
-			ActionRequise:       "Contacter l'ambassade du Burkina Faso pour renouvellement",
-			PersonneResponsable: "Agent DGM002",
-			CreatedAt:           time.Now().Add(-time.Hour * 24 * 5),
-			UpdatedAt:           time.Now().Add(-time.Hour * 24 * 1),
+	// Modèles d'alertes par type
+	alertesModeles := map[string][]struct {
+		Titre               string
+		DescriptionTemplate string
+		Gravite             string
+		JoursExpiration     int
+		ActionRequise       string
+	}{
+		"securite": {
+			{"Document d'identité expirant", "Le passeport expire dans %d jours. Renouvellement urgent requis.", "warning", 45, "Contacter l'ambassade pour renouvellement"},
+			{"Zone d'origine instable", "La zone d'origine reste instable avec des combats sporadiques. Retour non recommandé.", "danger", 90, "Maintenir en zone sécurisée, surveiller évolution"},
+			{"Signalement suspect", "Activité suspecte détectée nécessitant vérification.", "warning", 30, "Enquête de vérification à mener"},
 		},
-		{
-			UUID:                utils.GenerateUUID(),
-			MigrantUUID:         migrants[1].UUID,
-			TypeAlerte:          "sante",
-			NiveauGravite:       "danger",
-			Titre:               "Suivi médical urgent requis",
-			Description:         "Mme TRAORE présente des symptômes de stress post-traumatique. Un suivi médical urgent est nécessaire.",
-			Statut:              "active",
-			DateExpiration:      &[]time.Time{time.Now().Add(time.Hour * 24 * 15)}[0],
-			ActionRequise:       "Orientation vers le centre médical MSF",
-			PersonneResponsable: "Agent DGM003",
-			CreatedAt:           time.Now().Add(-time.Hour * 24 * 10),
-			UpdatedAt:           time.Now().Add(-time.Hour * 24 * 2),
+		"sante": {
+			{"Suivi médical urgent", "Suivi médical urgent requis suite à symptômes détectés.", "danger", 15, "Orientation vers centre médical MSF ou Croix-Rouge"},
+			{"Vaccination incomplète", "Carnet de vaccination incomplet. Mise à jour nécessaire.", "warning", 60, "Compléter le programme de vaccination"},
+			{"Dépistage sanitaire", "Dépistage sanitaire de routine à effectuer.", "info", 30, "Planifier rendez-vous médical"},
 		},
-		{
-			UUID:                utils.GenerateUUID(),
-			MigrantUUID:         migrants[2].UUID,
-			TypeAlerte:          "administrative",
-			NiveauGravite:       "info",
-			Titre:               "Renouvellement de permis de séjour",
-			Description:         "Le permis de séjour de M. KONE expire dans 60 jours. Procédure de renouvellement à entamer.",
-			Statut:              "active",
-			DateExpiration:      &[]time.Time{time.Now().Add(time.Hour * 24 * 60)}[0],
-			ActionRequise:       "Accompagner dans les démarches de renouvellement",
-			PersonneResponsable: "Agent DGM001",
-			CreatedAt:           time.Now().Add(-time.Hour * 24 * 2),
-			UpdatedAt:           time.Now().Add(-time.Hour * 24 * 1),
+		"administrative": {
+			{"Renouvellement permis de séjour", "Le permis de séjour expire dans %d jours. Renouvellement à entamer.", "warning", 60, "Accompagner dans les démarches administratives"},
+			{"Documents manquants", "Dossier incomplet. Documents administratifs manquants.", "warning", 45, "Compléter le dossier avec pièces manquantes"},
+			{"Enregistrement biométrique", "Enregistrement biométrique incomplet ou à renouveler.", "info", 90, "Planifier session de capture biométrique"},
 		},
-		// Alertes spécifiques pour les déplacés internes de la RDC
-		{
-			UUID:                utils.GenerateUUID(),
-			MigrantUUID:         migrants[len(migrants)-4].UUID, // Jeanne KABILA (déplacée interne)
-			TypeAlerte:          "securite",
-			NiveauGravite:       "danger",
-			Titre:               "Zone d'origine toujours instable",
-			Description:         "La zone de Rutshuru reste instable avec des combats sporadiques. Retour non recommandé pour le moment.",
-			Statut:              "active",
-			DateExpiration:      &[]time.Time{time.Now().Add(time.Hour * 24 * 30)}[0],
-			ActionRequise:       "Maintenir en zone sécurisée, surveiller évolution sécuritaire",
-			PersonneResponsable: "Coordinateur Camp Mugunga",
-			CreatedAt:           time.Now().Add(-time.Hour * 24 * 7),
-			UpdatedAt:           time.Now().Add(-time.Hour * 24 * 1),
+		"social": {
+			{"Recherche d'opportunités d'emploi", "Demande d'assistance pour formation professionnelle ou recherche d'emploi.", "info", 90, "Orientation vers programmes de formation"},
+			{"Assistance humanitaire", "Besoin d'assistance alimentaire ou matérielle urgente.", "danger", 15, "Coordination avec ONG partenaires (HCR, PAM)"},
+			{"Recherche de membres de famille", "Recherche active de membres de famille séparés.", "warning", 120, "Inscription au programme Croix-Rouge"},
+			{"Scolarisation des enfants", "Enfants non scolarisés nécessitant inscription.", "warning", 60, "Contact avec établissements scolaires locaux"},
 		},
-		{
-			UUID:                utils.GenerateUUID(),
-			MigrantUUID:         migrants[len(migrants)-3].UUID, // Jean-Baptiste MBUYI
-			TypeAlerte:          "social",
-			NiveauGravite:       "warning",
-			Titre:               "Recherche d'opportunités d'emploi",
-			Description:         "Déplacé interne cherche formation professionnelle ou opportunité d'emploi pour intégration économique.",
-			Statut:              "active",
-			DateExpiration:      &[]time.Time{time.Now().Add(time.Hour * 24 * 90)}[0],
-			ActionRequise:       "Orientation vers programmes de formation professionnelle",
-			PersonneResponsable: "Agent DGM004",
-			CreatedAt:           time.Now().Add(-time.Hour * 24 * 14),
-			UpdatedAt:           time.Now().Add(-time.Hour * 24 * 3),
+		"juridique": {
+			{"Procédure d'asile en cours", "Demande d'asile en cours d'examen. Suivi requis.", "info", 180, "Suivi régulier du dossier avec autorités"},
+			{"Régularisation statut", "Procédure de régularisation du statut migratoire à initier.", "warning", 90, "Entamer démarches de régularisation"},
 		},
-		{
-			UUID:                utils.GenerateUUID(),
-			MigrantUUID:         migrants[len(migrants)-2].UUID, // Espérance NGOY
-			TypeAlerte:          "sante",
-			NiveauGravite:       "warning",
-			Titre:               "Suivi psychologique traumatisme",
-			Description:         "Victime de violences ethniques, nécessite un suivi psychologique régulier pour traiter le traumatisme.",
-			Statut:              "active",
-			DateExpiration:      &[]time.Time{time.Now().Add(time.Hour * 24 * 180)}[0],
-			ActionRequise:       "Sessions thérapeutiques hebdomadaires avec psychologue",
-			PersonneResponsable: "Dr. MUKENDI - Centre médical",
-			CreatedAt:           time.Now().Add(-time.Hour * 24 * 21),
-			UpdatedAt:           time.Now().Add(-time.Hour * 24 * 5),
-		},
-		{
-			UUID:                utils.GenerateUUID(),
-			MigrantUUID:         migrants[len(migrants)-1].UUID, // Patient KASONGO
-			TypeAlerte:          "administrative",
-			NiveauGravite:       "info",
-			Titre:               "Demande de carte d'identité nationale",
-			Description:         "Documents d'identité perdus lors de la fuite. Procédure de renouvellement de carte d'identité en cours.",
-			Statut:              "active",
-			DateExpiration:      &[]time.Time{time.Now().Add(time.Hour * 24 * 60)}[0],
-			ActionRequise:       "Accompagner aux services de l'état civil pour reconstitution dossier",
-			PersonneResponsable: "Agent DGM005",
-			CreatedAt:           time.Now().Add(-time.Hour * 24 * 12),
-			UpdatedAt:           time.Now().Add(-time.Hour * 24 * 2),
-		},
-		{
-			UUID:                utils.GenerateUUID(),
-			MigrantUUID:         migrants[len(migrants)-4].UUID, // Alerte supplémentaire pour Jeanne KABILA
-			TypeAlerte:          "social",
-			NiveauGravite:       "info",
-			Titre:               "Recherche de membres de famille",
-			Description:         "Recherche active de membres de famille séparés lors du déplacement forcé depuis Rutshuru.",
-			Statut:              "active",
-			DateExpiration:      &[]time.Time{time.Now().Add(time.Hour * 24 * 120)}[0],
-			ActionRequise:       "Inscription au programme de recherche familiale de la Croix-Rouge",
-			PersonneResponsable: "CICR Goma",
-			CreatedAt:           time.Now().Add(-time.Hour * 24 * 18),
-			UpdatedAt:           time.Now().Add(-time.Hour * 24 * 4),
-		},
+	}
+
+	var alerts []models.Alert
+
+	typesAlertes := []string{"securite", "sante", "administrative", "social", "juridique"}
+	responsables := []string{"Agent DGM001", "Agent DGM002", "Agent DGM003", "Coordinateur UNHCR", "MSF Médecin", "Croix-Rouge RDC"}
+
+	// Créer 1-3 alertes par migrant selon leur profil
+	for _, migrant := range migrants {
+		numAlertes := rand.Intn(3) + 1
+
+		// Plus d'alertes pour les déplacés internes et demandeurs d'asile
+		if migrant.StatutMigratoire == "deplace_interne" || migrant.StatutMigratoire == "demandeur_asile" {
+			numAlertes = rand.Intn(2) + 2 // 2-3 alertes
+		}
+
+		for i := 0; i < numAlertes; i++ {
+			typeAlerte := typesAlertes[rand.Intn(len(typesAlertes))]
+			modeles := alertesModeles[typeAlerte]
+			modele := modeles[rand.Intn(len(modeles))]
+
+			// Date de création de l'alerte (après création du migrant)
+			joursDepuisMigrant := rand.Intn(60) + 5
+			dateCreation := migrant.CreatedAt.AddDate(0, 0, joursDepuisMigrant)
+			dateExpiration := dateCreation.AddDate(0, 0, modele.JoursExpiration)
+
+			// Description personnalisée
+			description := modele.DescriptionTemplate
+			if typeAlerte == "securite" && modele.Titre == "Document d'identité expirant" {
+				description = fmt.Sprintf(modele.DescriptionTemplate, modele.JoursExpiration)
+			}
+
+			// Statut de l'alerte (80% actives, 20% résolues)
+			statut := "active"
+			var dateResolution *time.Time
+			if rand.Float64() < 0.20 {
+				statut = "resolved"
+				dateRes := dateCreation.AddDate(0, 0, rand.Intn(modele.JoursExpiration/2))
+				dateResolution = &dateRes
+			}
+
+			alert := models.Alert{
+				UUID:                utils.GenerateUUID(),
+				MigrantUUID:         migrant.UUID,
+				TypeAlerte:          typeAlerte,
+				NiveauGravite:       modele.Gravite,
+				Titre:               modele.Titre,
+				Description:         description,
+				Statut:              statut,
+				DateExpiration:      &dateExpiration,
+				ActionRequise:       modele.ActionRequise,
+				PersonneResponsable: responsables[rand.Intn(len(responsables))],
+				DateResolution:      dateResolution,
+				CreatedAt:           dateCreation,
+				UpdatedAt:           dateCreation,
+			}
+
+			alerts = append(alerts, alert)
+		}
 	}
 
 	// Insérer en base
@@ -1048,5 +909,30 @@ func simulateAlerts(db *gorm.DB) error {
 	}
 
 	log.Printf("✅ %d alertes créées", len(alerts))
+
+	// Statistiques
+	statsType := make(map[string]int)
+	statsGravite := make(map[string]int)
+	statsStatut := make(map[string]int)
+
+	for _, alert := range alerts {
+		statsType[alert.TypeAlerte]++
+		statsGravite[alert.NiveauGravite]++
+		statsStatut[alert.Statut]++
+	}
+
+	log.Println("📊 Distribution des alertes par type:")
+	for type_, count := range statsType {
+		log.Printf("   - %s: %d (%.1f%%)", type_, count, float64(count)/float64(len(alerts))*100)
+	}
+	log.Println("📊 Niveau de gravité:")
+	for gravite, count := range statsGravite {
+		log.Printf("   - %s: %d", gravite, count)
+	}
+	log.Println("📊 Statut des alertes:")
+	for statut, count := range statsStatut {
+		log.Printf("   - %s: %d (%.1f%%)", statut, count, float64(count)/float64(len(alerts))*100)
+	}
+
 	return nil
 }

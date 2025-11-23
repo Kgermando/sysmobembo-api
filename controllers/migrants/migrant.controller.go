@@ -68,7 +68,6 @@ func GetPaginatedMigrants(c *fiber.Ctx) error {
 		Preload("MotifDeplacements").
 		Preload("Alertes").
 		Preload("Biometries").
-		Preload("Geolocalisations").
 		Offset(offset).
 		Limit(limit).
 		Order("migrants.updated_at DESC").

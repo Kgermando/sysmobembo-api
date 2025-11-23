@@ -303,6 +303,16 @@ func getProfilDemographique(periode int, province string) ProfilDemographiqueSta
 	}
 	femmeQuery.Count(&femmes)
 
+	// Compter les hommes - Utiliser JOIN avec identites
+	var hommes int64
+	hommeQuery := db.Table("migrants m").
+		Joins("JOIN identites i ON m.identite_uuid = i.uuid").
+		Where("m.created_at >= ? AND i.sexe = ?", dateDebut, "M")
+	if province != "" {
+		hommeQuery = hommeQuery.Where("m.ville_actuelle = ?", province)
+	}
+	hommeQuery.Count(&hommes)
+
 	// Compter les enfants (moins de 18 ans)
 	dateMineure := time.Now().AddDate(-18, 0, 0)
 	enfantQuery := db.Table("migrants m").
@@ -342,17 +352,20 @@ func getProfilDemographique(periode int, province string) ProfilDemographiqueSta
 	}
 
 	pourcentageFemmes := float64(0)
+	pourcentageHommes := float64(0)
 	pourcentageEnfants := float64(0)
 	pourcentageAges := float64(0)
 
 	if totalMigrants > 0 {
 		pourcentageFemmes = float64(femmes) / float64(totalMigrants) * 100
+		pourcentageHommes = float64(hommes) / float64(totalMigrants) * 100
 		pourcentageEnfants = float64(enfants) / float64(totalMigrants) * 100
 		pourcentageAges = float64(ages) / float64(totalMigrants) * 100
 	}
 
 	return ProfilDemographiqueStats{
 		PourcentageFemmes:  pourcentageFemmes,
+		PourcentageHommes:  pourcentageHommes,
 		PourcentageEnfants: pourcentageEnfants,
 		PourcentageAges:    pourcentageAges,
 		AgeMoyen:           ageTotal,
