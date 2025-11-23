@@ -30,7 +30,9 @@ type Identite struct {
 
 	NumeroPasseport string `json:"numero_passeport" gorm:"unique;not null;default:''" validate:"required"`
 
-	Migrants []Migrant `json:"migrants" gorm:"foreignKey:IdentiteUUID;constraint:OnDelete:CASCADE"`
+	// Relations
+	Migrants         []Migrant         `json:"migrants" gorm:"foreignKey:IdentiteUUID;constraint:OnDelete:CASCADE"`
+	Geolocalisations []Geolocalisation `json:"geolocalisations" gorm:"foreignKey:IdentiteUUID;constraint:OnDelete:CASCADE"`
 }
 
 func (i *Identite) TableName() string {

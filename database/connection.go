@@ -105,9 +105,9 @@ func runAllSimulators(db *gorm.DB) error {
 		return fmt.Errorf("erreur lors de la simulation des migrants: %v", err)
 	}
 
-	// 4. Créer les géolocalisations (dépendent des migrants)
+	// 4. Créer les géolocalisations (dépendent des identités)
 	log.Println("4. Création des géolocalisations...")
-	if err := simulateGeolocalisations(db); err != nil {
+	if err := simulateGeolocalisations(db, identiteMap); err != nil {
 		return fmt.Errorf("erreur lors de la simulation des géolocalisations: %v", err)
 	}
 
@@ -479,7 +479,7 @@ func simulateMigrants(db *gorm.DB, identiteMap map[string]string) error {
 			StatutMigratoire:      "regulier",
 			DateEntree:            &[]time.Time{time.Date(2025, 6, 5, 0, 0, 0, 0, time.UTC)}[0],
 			PointEntree:           "Aéroport de N'djili",
-			PaysDestination:       "République Démocratique du Congo", 
+			PaysDestination:       "République Démocratique du Congo",
 			CreatedAt:             time.Date(2025, 6, 5, 10, 30, 0, 0, time.UTC),
 			UpdatedAt:             time.Date(2025, 6, 5, 10, 30, 0, 0, time.UTC),
 		},
@@ -497,7 +497,7 @@ func simulateMigrants(db *gorm.DB, identiteMap map[string]string) error {
 			StatutMigratoire:      "regulier",
 			DateEntree:            &[]time.Time{time.Date(2025, 6, 12, 0, 0, 0, 0, time.UTC)}[0],
 			PointEntree:           "Aéroport de N'djili",
-			PaysDestination:       "République Démocratique du Congo", 
+			PaysDestination:       "République Démocratique du Congo",
 			CreatedAt:             time.Date(2025, 6, 12, 14, 15, 0, 0, time.UTC),
 			UpdatedAt:             time.Date(2025, 6, 12, 14, 15, 0, 0, time.UTC),
 		},
@@ -533,7 +533,7 @@ func simulateMigrants(db *gorm.DB, identiteMap map[string]string) error {
 			StatutMigratoire:      "demandeur_asile",
 			DateEntree:            &[]time.Time{time.Date(2025, 6, 25, 0, 0, 0, 0, time.UTC)}[0],
 			PointEntree:           "Frontière de Bangui",
-			PaysDestination:       "République Démocratique du Congo", 
+			PaysDestination:       "République Démocratique du Congo",
 			CreatedAt:             time.Date(2025, 6, 25, 16, 20, 0, 0, time.UTC),
 			UpdatedAt:             time.Date(2025, 6, 25, 16, 20, 0, 0, time.UTC),
 		},
@@ -551,7 +551,7 @@ func simulateMigrants(db *gorm.DB, identiteMap map[string]string) error {
 			StatutMigratoire:      "regulier",
 			DateEntree:            &[]time.Time{time.Date(2025, 7, 2, 0, 0, 0, 0, time.UTC)}[0],
 			PointEntree:           "Aéroport de N'djili",
-			PaysDestination:       "République Démocratique du Congo", 
+			PaysDestination:       "République Démocratique du Congo",
 			CreatedAt:             time.Date(2025, 7, 2, 9, 15, 0, 0, time.UTC),
 			UpdatedAt:             time.Date(2025, 7, 2, 9, 15, 0, 0, time.UTC),
 		},
@@ -573,7 +573,7 @@ func simulateMigrants(db *gorm.DB, identiteMap map[string]string) error {
 			StatutMigratoire:      "deplace_interne",
 			DateEntree:            &[]time.Time{time.Date(2025, 6, 8, 0, 0, 0, 0, time.UTC)}[0],
 			PointEntree:           "Déplacement depuis Goma suite aux conflits",
-			PaysDestination:       "République Démocratique du Congo", 
+			PaysDestination:       "République Démocratique du Congo",
 			CreatedAt:             time.Date(2025, 6, 8, 14, 0, 0, 0, time.UTC),
 			UpdatedAt:             time.Date(2025, 6, 8, 14, 0, 0, 0, time.UTC),
 		},
@@ -593,7 +593,7 @@ func simulateMigrants(db *gorm.DB, identiteMap map[string]string) error {
 			StatutMigratoire:      "deplace_interne",
 			DateEntree:            &[]time.Time{time.Date(2025, 6, 15, 0, 0, 0, 0, time.UTC)}[0],
 			PointEntree:           "Fuite de Butembo suite aux violences",
-			PaysDestination:       "République Démocratique du Congo", 
+			PaysDestination:       "République Démocratique du Congo",
 			CreatedAt:             time.Date(2025, 6, 15, 11, 30, 0, 0, time.UTC),
 			UpdatedAt:             time.Date(2025, 6, 15, 11, 30, 0, 0, time.UTC),
 		},
@@ -612,82 +612,88 @@ func simulateMigrants(db *gorm.DB, identiteMap map[string]string) error {
 }
 
 // simulateGeolocalisations crée des géolocalisations simulées
-func simulateGeolocalisations(db *gorm.DB) error {
-	// Récupérer les migrants existants
-	var migrants []models.Migrant
-	if err := db.Find(&migrants).Error; err != nil {
-		return err
-	}
-
-	if len(migrants) == 0 {
-		return nil
-	}
-
+func simulateGeolocalisations(db *gorm.DB, identiteMap map[string]string) error {
 	geolocalisations := []models.Geolocalisation{
 		{
-			UUID:             utils.GenerateUUID(),
-			MigrantUUID:      migrants[0].UUID,
-			Latitude:         -4.3317,
-			Longitude:        15.3139,  
-			CreatedAt:        time.Now(),
-			UpdatedAt:        time.Now(),
+			UUID:         utils.GenerateUUID(),
+			IdentiteUUID: identiteMap["MIG2025001"],
+			Latitude:     -4.3317,
+			Longitude:    15.3139,
+			CreatedAt:    time.Now(),
+			UpdatedAt:    time.Now(),
 		},
 		{
-			UUID:             utils.GenerateUUID(),
-			MigrantUUID:      migrants[1].UUID,
-			Latitude:         -4.3728,
-			Longitude:        15.2663,  
-			CreatedAt:        time.Now(),
-			UpdatedAt:        time.Now(),
+			UUID:         utils.GenerateUUID(),
+			IdentiteUUID: identiteMap["MIG2025002"],
+			Latitude:     -4.3728,
+			Longitude:    15.2663,
+			CreatedAt:    time.Now(),
+			UpdatedAt:    time.Now(),
+		},
+		{
+			UUID:         utils.GenerateUUID(),
+			IdentiteUUID: identiteMap["MIG2025003"],
+			Latitude:     48.8566,
+			Longitude:    2.3522,
+			CreatedAt:    time.Now(),
+			UpdatedAt:    time.Now(),
+		},
+		{
+			UUID:         utils.GenerateUUID(),
+			IdentiteUUID: identiteMap["MIG2025004"],
+			Latitude:     50.8503,
+			Longitude:    4.3517,
+			CreatedAt:    time.Now(),
+			UpdatedAt:    time.Now(),
 		},
 		// === GÉOLOCALISATIONS POUR DÉPLACÉS INTERNES RDC ===
 		{
-			UUID:             utils.GenerateUUID(),
-			MigrantUUID:      migrants[4].UUID, // Jeanne KABILA
-			Latitude:         -1.6792,
-			Longitude:        29.2228,  
-			CreatedAt:        time.Now(),
-			UpdatedAt:        time.Now(),
+			UUID:         utils.GenerateUUID(),
+			IdentiteUUID: identiteMap["MIG2025005"], // Jeanne KABILA
+			Latitude:     -1.6792,
+			Longitude:    29.2228,
+			CreatedAt:    time.Now(),
+			UpdatedAt:    time.Now(),
 		},
 		{
-			UUID:             utils.GenerateUUID(),
-			MigrantUUID:      migrants[4].UUID, // Jeanne KABILA - Lieu d'origine
-			Latitude:         -1.1853,
-			Longitude:        29.2441,  
-			CreatedAt:        time.Now(),
-			UpdatedAt:        time.Now(),
+			UUID:         utils.GenerateUUID(),
+			IdentiteUUID: identiteMap["MIG2025005"], // Jeanne KABILA - Lieu d'origine
+			Latitude:     -1.1853,
+			Longitude:    29.2441,
+			CreatedAt:    time.Now(),
+			UpdatedAt:    time.Now(),
 		},
 		{
-			UUID:             utils.GenerateUUID(),
-			MigrantUUID:      migrants[5].UUID, // Jean-Baptiste MBUYI
-			Latitude:         -4.3317,
-			Longitude:        15.3139,  
-			CreatedAt:        time.Now(),
-			UpdatedAt:        time.Now(),
+			UUID:         utils.GenerateUUID(),
+			IdentiteUUID: identiteMap["MIG2025006"], // Jean-Baptiste MBUYI
+			Latitude:     -4.3317,
+			Longitude:    15.3139,
+			CreatedAt:    time.Now(),
+			UpdatedAt:    time.Now(),
 		},
 		{
-			UUID:             utils.GenerateUUID(),
-			MigrantUUID:      migrants[6].UUID, // Espérance NGOY
-			Latitude:         1.5593,
-			Longitude:        30.0944,  
-			CreatedAt:        time.Now(),
-			UpdatedAt:        time.Now(),
+			UUID:         utils.GenerateUUID(),
+			IdentiteUUID: identiteMap["MIG2025007"], // Espérance NGOY
+			Latitude:     1.5593,
+			Longitude:    30.0944,
+			CreatedAt:    time.Now(),
+			UpdatedAt:    time.Now(),
 		},
 		{
-			UUID:             utils.GenerateUUID(),
-			MigrantUUID:      migrants[7].UUID, // Patient KASONGO
-			Latitude:         -4.3728,
-			Longitude:        15.2663,  
-			CreatedAt:        time.Now(),
-			UpdatedAt:        time.Now(),
+			UUID:         utils.GenerateUUID(),
+			IdentiteUUID: identiteMap["MIG2025008"], // Patient KASONGO
+			Latitude:     -4.3728,
+			Longitude:    15.2663,
+			CreatedAt:    time.Now(),
+			UpdatedAt:    time.Now(),
 		},
 		{
-			UUID:             utils.GenerateUUID(),
-			MigrantUUID:      migrants[7].UUID, // Patient KASONGO - Lieu d'origine
-			Latitude:         0.4951,
-			Longitude:        29.4721,  
-			CreatedAt:        time.Now(),
-			UpdatedAt:        time.Now(),
+			UUID:         utils.GenerateUUID(),
+			IdentiteUUID: identiteMap["MIG2025008"], // Patient KASONGO - Lieu d'origine
+			Latitude:     0.4951,
+			Longitude:    29.4721,
+			CreatedAt:    time.Now(),
+			UpdatedAt:    time.Now(),
 		},
 	}
 
@@ -717,89 +723,89 @@ func simulateMotifDeplacements(db *gorm.DB) error {
 
 	motifDeplacements := []models.MotifDeplacement{
 		{
-			UUID:                 utils.GenerateUUID(),
-			MigrantUUID:          migrants[0].UUID,
-			TypeMotif:            "economique",
-			MotifPrincipal:       "Recherche d'opportunités d'emploi mieux rémunérées",
-			MotifSecondaire:      "Diversification des activités commerciales",
-			Description:          "Commerçant burkinabè cherchant à développer son commerce de produits artisanaux et textiles au Congo.",
-			CaractereVolontaire:  true,
-			Urgence:              "faible",
-			DateDeclenchement:    time.Date(2023, 12, 1, 0, 0, 0, 0, time.UTC),
-			DureeEstimee:         365, 
-			CreatedAt:            time.Now(),
-			UpdatedAt:            time.Now(),
+			UUID:                utils.GenerateUUID(),
+			MigrantUUID:         migrants[0].UUID,
+			TypeMotif:           "economique",
+			MotifPrincipal:      "Recherche d'opportunités d'emploi mieux rémunérées",
+			MotifSecondaire:     "Diversification des activités commerciales",
+			Description:         "Commerçant burkinabè cherchant à développer son commerce de produits artisanaux et textiles au Congo.",
+			CaractereVolontaire: true,
+			Urgence:             "faible",
+			DateDeclenchement:   time.Date(2023, 12, 1, 0, 0, 0, 0, time.UTC),
+			DureeEstimee:        365,
+			CreatedAt:           time.Now(),
+			UpdatedAt:           time.Now(),
 		},
 		{
-			UUID:                 utils.GenerateUUID(),
-			MigrantUUID:          migrants[1].UUID,
-			TypeMotif:            "politique",
-			MotifPrincipal:       "Instabilité politique et menaces sécuritaires au Mali",
-			MotifSecondaire:      "Protection de la famille",
-			Description:          "Fuit l'instabilité politique au Mali suite aux coups d'État successifs.",
-			CaractereVolontaire:  false,
-			Urgence:              "elevee",
-			DateDeclenchement:    time.Date(2023, 10, 15, 0, 0, 0, 0, time.UTC),
-			DureeEstimee:         730, 
-			CreatedAt:            time.Now(),
-			UpdatedAt:            time.Now(),
+			UUID:                utils.GenerateUUID(),
+			MigrantUUID:         migrants[1].UUID,
+			TypeMotif:           "politique",
+			MotifPrincipal:      "Instabilité politique et menaces sécuritaires au Mali",
+			MotifSecondaire:     "Protection de la famille",
+			Description:         "Fuit l'instabilité politique au Mali suite aux coups d'État successifs.",
+			CaractereVolontaire: false,
+			Urgence:             "elevee",
+			DateDeclenchement:   time.Date(2023, 10, 15, 0, 0, 0, 0, time.UTC),
+			DureeEstimee:        730,
+			CreatedAt:           time.Now(),
+			UpdatedAt:           time.Now(),
 		},
 		// === MOTIFS POUR DÉPLACÉS INTERNES RDC ===
 		{
-			UUID:                 utils.GenerateUUID(),
-			MigrantUUID:          migrants[4].UUID, // Jeanne KABILA
-			TypeMotif:            "politique",
-			MotifPrincipal:       "Violences intercommunautaires dans le Nord-Kivu",
-			MotifSecondaire:      "Protection de la famille et des enfants",
-			Description:          "Conflits armés entre groupes rebelles dans la région de Rutshuru. Violences contre les civils, pillages et menaces directes contre la famille.",
-			CaractereVolontaire:  false,
-			Urgence:              "critique",
-			DateDeclenchement:    time.Date(2023, 9, 1, 0, 0, 0, 0, time.UTC),
-			DureeEstimee:         1095, // 3 ans 
-			CreatedAt:            time.Now(),
-			UpdatedAt:            time.Now(),
+			UUID:                utils.GenerateUUID(),
+			MigrantUUID:         migrants[4].UUID, // Jeanne KABILA
+			TypeMotif:           "politique",
+			MotifPrincipal:      "Violences intercommunautaires dans le Nord-Kivu",
+			MotifSecondaire:     "Protection de la famille et des enfants",
+			Description:         "Conflits armés entre groupes rebelles dans la région de Rutshuru. Violences contre les civils, pillages et menaces directes contre la famille.",
+			CaractereVolontaire: false,
+			Urgence:             "critique",
+			DateDeclenchement:   time.Date(2023, 9, 1, 0, 0, 0, 0, time.UTC),
+			DureeEstimee:        1095, // 3 ans
+			CreatedAt:           time.Now(),
+			UpdatedAt:           time.Now(),
 		},
 		{
-			UUID:                 utils.GenerateUUID(),
-			MigrantUUID:          migrants[5].UUID, // Jean-Baptiste MBUYI
-			TypeMotif:            "economique",
-			MotifPrincipal:       "Effondrement de l'activité minière artisanale",
-			MotifSecondaire:      "Recherche d'opportunités d'emploi à Kinshasa",
-			Description:          "Fermeture des sites miniers artisanaux dans la région de Kananga due à l'épuisement des ressources et aux conflits. Migration vers Kinshasa pour chercher du travail.",
-			CaractereVolontaire:  true,
-			Urgence:              "moyenne",
-			DateDeclenchement:    time.Date(2024, 1, 10, 0, 0, 0, 0, time.UTC),
-			DureeEstimee:         730, // 2 ans 
-			CreatedAt:            time.Now(),
-			UpdatedAt:            time.Now(),
+			UUID:                utils.GenerateUUID(),
+			MigrantUUID:         migrants[5].UUID, // Jean-Baptiste MBUYI
+			TypeMotif:           "economique",
+			MotifPrincipal:      "Effondrement de l'activité minière artisanale",
+			MotifSecondaire:     "Recherche d'opportunités d'emploi à Kinshasa",
+			Description:         "Fermeture des sites miniers artisanaux dans la région de Kananga due à l'épuisement des ressources et aux conflits. Migration vers Kinshasa pour chercher du travail.",
+			CaractereVolontaire: true,
+			Urgence:             "moyenne",
+			DateDeclenchement:   time.Date(2024, 1, 10, 0, 0, 0, 0, time.UTC),
+			DureeEstimee:        730, // 2 ans
+			CreatedAt:           time.Now(),
+			UpdatedAt:           time.Now(),
 		},
 		{
-			UUID:                 utils.GenerateUUID(),
-			MigrantUUID:          migrants[6].UUID, // Espérance NGOY
-			TypeMotif:            "politique",
-			MotifPrincipal:       "Violences ethniques dans l'Ituri",
-			MotifSecondaire:      "Menaces et intimidations",
-			Description:          "Conflits ethniques entre communautés Hema et Lendu dans la région de Djugu. Massacres, destructions de villages et ciblage des jeunes femmes.",
-			CaractereVolontaire:  false,
-			Urgence:              "critique",
-			DateDeclenchement:    time.Date(2023, 11, 28, 0, 0, 0, 0, time.UTC),
-			DureeEstimee:         1460, // 4 ans 
-			CreatedAt:            time.Now(),
-			UpdatedAt:            time.Now(),
+			UUID:                utils.GenerateUUID(),
+			MigrantUUID:         migrants[6].UUID, // Espérance NGOY
+			TypeMotif:           "politique",
+			MotifPrincipal:      "Violences ethniques dans l'Ituri",
+			MotifSecondaire:     "Menaces et intimidations",
+			Description:         "Conflits ethniques entre communautés Hema et Lendu dans la région de Djugu. Massacres, destructions de villages et ciblage des jeunes femmes.",
+			CaractereVolontaire: false,
+			Urgence:             "critique",
+			DateDeclenchement:   time.Date(2023, 11, 28, 0, 0, 0, 0, time.UTC),
+			DureeEstimee:        1460, // 4 ans
+			CreatedAt:           time.Now(),
+			UpdatedAt:           time.Now(),
 		},
 		{
-			UUID:                 utils.GenerateUUID(),
-			MigrantUUID:          migrants[7].UUID, // Patient KASONGO
-			TypeMotif:            "securite",
-			MotifPrincipal:       "Attaques des groupes armés ADF dans la région de Beni",
-			MotifSecondaire:      "Protection de la famille nombreuse",
-			Description:          "Attaques répétées des Forces Démocratiques Alliées (ADF) dans la région de Beni. Massacres de civils, enlèvements et destructions de biens. Fuite urgente avec toute la famille.",
-			CaractereVolontaire:  false,
-			Urgence:              "critique",
-			DateDeclenchement:    time.Date(2023, 6, 10, 0, 0, 0, 0, time.UTC),
-			DureeEstimee:         1825, // 5 ans 
-			CreatedAt:            time.Now(),
-			UpdatedAt:            time.Now(),
+			UUID:                utils.GenerateUUID(),
+			MigrantUUID:         migrants[7].UUID, // Patient KASONGO
+			TypeMotif:           "securite",
+			MotifPrincipal:      "Attaques des groupes armés ADF dans la région de Beni",
+			MotifSecondaire:     "Protection de la famille nombreuse",
+			Description:         "Attaques répétées des Forces Démocratiques Alliées (ADF) dans la région de Beni. Massacres de civils, enlèvements et destructions de biens. Fuite urgente avec toute la famille.",
+			CaractereVolontaire: false,
+			Urgence:             "critique",
+			DateDeclenchement:   time.Date(2023, 6, 10, 0, 0, 0, 0, time.UTC),
+			DureeEstimee:        1825, // 5 ans
+			CreatedAt:           time.Now(),
+			UpdatedAt:           time.Now(),
 		},
 	}
 

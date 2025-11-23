@@ -40,7 +40,7 @@ func getVolumeLocalisationIndicateurs(periode int, province string) VolumeLocali
 	// Personnes retournées (approximation basée sur les géolocalisations récentes)
 	var personnesRetournees int64
 	geoQuery := db.Table("geolocalisations g").
-		Joins("JOIN migrants m ON g.migrant_uuid = m.uuid").
+		Joins("JOIN migrants m ON g.identite_uuid = m.identite_uuid").
 		Where("g.created_at >= ?", dateDebut)
 	if province != "" {
 		geoQuery = geoQuery.Where("m.ville_actuelle = ?", province)
@@ -126,7 +126,7 @@ func getEvolutionMensuelle(periode int, province string) []EvolutionTemporelleSt
 		// Retours ce mois (approximation basée sur géolocalisations)
 		var retours int64
 		geoQuery := db.Table("geolocalisations g").
-			Joins("JOIN migrants m ON g.migrant_uuid = m.uuid").
+			Joins("JOIN migrants m ON g.identite_uuid = m.identite_uuid").
 			Where("g.created_at >= ? AND g.created_at < ?", debutMois, finMois)
 		if province != "" {
 			geoQuery = geoQuery.Where("m.ville_actuelle = ?", province)
@@ -248,7 +248,7 @@ func getVulnerabiliteBesoinsIndicateurs(periode int, province string) Vulnerabil
 	// Taux d'occupation des sites et déplacés hors sites (approximation)
 	var deplacesHorsSites int64
 	horsQuery := db.Table("geolocalisations g").
-		Joins("JOIN migrants m ON g.migrant_uuid = m.uuid").
+		Joins("JOIN migrants m ON g.identite_uuid = m.identite_uuid").
 		Where("g.created_at >= ?", dateDebut)
 	if province != "" {
 		horsQuery = horsQuery.Where("m.ville_actuelle = ?", province)
@@ -257,7 +257,7 @@ func getVulnerabiliteBesoinsIndicateurs(periode int, province string) Vulnerabil
 
 	var totalDansStructures int64
 	structuresQuery := db.Table("geolocalisations g").
-		Joins("JOIN migrants m ON g.migrant_uuid = m.uuid").
+		Joins("JOIN migrants m ON g.identite_uuid = m.identite_uuid").
 		Where("g.created_at >= ?", dateDebut)
 	if province != "" {
 		structuresQuery = structuresQuery.Where("m.ville_actuelle = ?", province)
@@ -445,7 +445,7 @@ func getTendancesRetour(periode int, province string) []TendanceRetourStats {
 
 	query := db.Table("geolocalisations g").
 		Select("i.lieu_naissance as zone_origine, m.ville_actuelle as zone_retour, COUNT(*) as count").
-		Joins("JOIN migrants m ON g.migrant_uuid = m.uuid").
+		Joins("JOIN migrants m ON g.identite_uuid = m.identite_uuid").
 		Joins("JOIN identites i ON m.identite_uuid = i.uuid").
 		Where("g.created_at >= ?", dateDebut).
 		Group("zone_origine, zone_retour").

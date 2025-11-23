@@ -45,7 +45,7 @@ func Setup(app *fiber.App) {
 	u.Delete("/delete/:uuid", users.DeleteUser)
 	u.Get("/export/excel", users.ExportUsersToExcel)
 
-	// Alerts controller
+	// Alerts controller 
 	alertsGroup := api.Group("/alerts")
 	alertsGroup.Get("/paginate", alerts.GetPaginatedAlerts)
 	alertsGroup.Get("/all", alerts.GetAllAlerts)
@@ -74,8 +74,8 @@ func Setup(app *fiber.App) {
 	geo := api.Group("/geolocations")
 	geo.Get("/paginate", geolocation.GetPaginatedGeolocalisations)
 	geo.Get("/all", geolocation.GetAllGeolocalisations)
-	geo.Get("/get/:uuid", geolocation.GetGeolocalisation)
-	geo.Get("/migrant/:migrant_uuid", geolocation.GetGeolocalisationsByMigrant)
+	geo.Get("/coordinates", geolocation.GetCoordinatesList)
+	geo.Get("/get/:uuid", geolocation.GetGeolocalisation) 
 	geo.Post("/create", geolocation.CreateGeolocalisation)
 	geo.Put("/update/:uuid", geolocation.UpdateGeolocalisation)
 	geo.Delete("/delete/:uuid", geolocation.DeleteGeolocalisation)

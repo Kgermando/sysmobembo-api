@@ -2,7 +2,6 @@ package geolocation
 
 import (
 	"fmt"
-	"math"
 	"strconv"
 	"time"
 
@@ -12,31 +11,6 @@ import (
 	"github.com/kgermando/sysmobembo-api/utils"
 	"github.com/xuri/excelize/v2"
 )
-
-// =======================
-// GIS UTILITY FUNCTIONS
-// =======================
-
-// Calculer la distance entre deux points (formule de Haversine)
-func calculateDistance(lat1, lon1, lat2, lon2 float64) float64 {
-	const earthRadius = 6371 // Rayon de la Terre en kilomètres
-
-	// Convertir en radians
-	lat1Rad := lat1 * math.Pi / 180
-	lon1Rad := lon1 * math.Pi / 180
-	lat2Rad := lat2 * math.Pi / 180
-	lon2Rad := lon2 * math.Pi / 180
-
-	// Différences
-	dlat := lat2Rad - lat1Rad
-	dlon := lon2Rad - lon1Rad
-
-	// Formule de Haversine
-	a := math.Sin(dlat/2)*math.Sin(dlat/2) + math.Cos(lat1Rad)*math.Cos(lat2Rad)*math.Sin(dlon/2)*math.Sin(dlon/2)
-	c := 2 * math.Atan2(math.Sqrt(a), math.Sqrt(1-a))
-
-	return earthRadius * c
-}
 
 // Valider les coordonnées GPS
 func validateCoordinates(lat, lon float64) error {
@@ -67,28 +41,16 @@ func GetPaginatedGeolocalisations(c *fiber.Ctx) error {
 	}
 	offset := (page - 1) * limit
 
-	migrantUUID := c.Query("migrant_uuid", "")
-	typeLocalisation := c.Query("type_localisation", "")
-	pays := c.Query("pays", "")
+	identiteUUID := c.Query("identite_uuid", "")
 
 	var geolocalisations []models.Geolocalisation
 	var totalRecords int64
 
-	query := db.Model(&models.Geolocalisation{}).Preload("Migrant")
+	query := db.Model(&models.Geolocalisation{}).Preload("Identite")
 
-	// Filtrer par migrant si spécifié
-	if migrantUUID != "" {
-		query = query.Where("migrant_uuid = ?", migrantUUID)
-	}
-
-	// Filtrer par type de localisation
-	if typeLocalisation != "" {
-		query = query.Where("type_localisation = ?", typeLocalisation)
-	}
-
-	// Filtrer par pays
-	if pays != "" {
-		query = query.Where("pays ILIKE ?", "%"+pays+"%")
+	// Filtrer par identite si spécifié
+	if identiteUUID != "" {
+		query = query.Where("identite_uuid = ?", identiteUUID)
 	}
 
 	// Count total
@@ -130,7 +92,7 @@ func GetAllGeolocalisations(c *fiber.Ctx) error {
 	db := database.DB
 	var geolocalisations []models.Geolocalisation
 
-	err := db.Preload("Migrant").
+	err := db.Preload("Identite").
 		Order("created_at DESC").
 		Find(&geolocalisations).Error
 
@@ -149,6 +111,47 @@ func GetAllGeolocalisations(c *fiber.Ctx) error {
 	})
 }
 
+// Get coordinates list with full names
+func GetCoordinatesList(c *fiber.Ctx) error {
+	db := database.DB
+	var geolocalisations []models.Geolocalisation
+
+	err := db.Preload("Identite").
+		Order("created_at DESC").
+		Find(&geolocalisations).Error
+
+	if err != nil {
+		return c.Status(500).JSON(fiber.Map{
+			"status":  "error",
+			"message": "Failed to fetch geolocations",
+			"error":   err.Error(),
+		})
+	}
+
+	// Transformer les données pour retourner seulement les coordonnées et le nom complet
+	type CoordinateData struct {
+		Latitude  float64 `json:"latitude"`
+		Longitude float64 `json:"longitude"`
+		FullName  string  `json:"fullname"`
+	}
+
+	var coordinates []CoordinateData
+	for _, geo := range geolocalisations {
+		fullName := geo.Identite.Nom + " " + geo.Identite.Postnom + " " + geo.Identite.Prenom
+		coordinates = append(coordinates, CoordinateData{
+			Latitude:  geo.Latitude,
+			Longitude: geo.Longitude,
+			FullName:  fullName,
+		})
+	}
+
+	return c.JSON(fiber.Map{
+		"status":  "success",
+		"message": "Coordinates list retrieved successfully",
+		"data":    coordinates,
+	})
+}
+
 // Get one geolocation
 func GetGeolocalisation(c *fiber.Ctx) error {
 	uuid := c.Params("uuid")
@@ -156,7 +159,7 @@ func GetGeolocalisation(c *fiber.Ctx) error {
 	var geolocalisation models.Geolocalisation
 
 	err := db.Where("uuid = ?", uuid).
-		Preload("Migrant").
+		Preload("Identite").
 		First(&geolocalisation).Error
 
 	if err != nil {
@@ -174,9 +177,9 @@ func GetGeolocalisation(c *fiber.Ctx) error {
 	})
 }
 
-// Get geolocations by migrant with pagination
-func GetGeolocalisationsByMigrant(c *fiber.Ctx) error {
-	migrantUUID := c.Params("migrant_uuid")
+// Get geolocations by identite with pagination
+func GetGeolocalisationsByIdentite(c *fiber.Ctx) error {
+	identiteUUID := c.Params("identite_uuid")
 	db := database.DB
 
 	page, err := strconv.Atoi(c.Query("page", "1"))
@@ -193,8 +196,8 @@ func GetGeolocalisationsByMigrant(c *fiber.Ctx) error {
 	var totalRecords int64
 
 	query := db.Model(&models.Geolocalisation{}).
-		Where("migrant_uuid = ?", migrantUUID).
-		Preload("Migrant")
+		Where("identite_uuid = ?", identiteUUID).
+		Preload("Identite")
 
 	// Count total
 	query.Count(&totalRecords)
@@ -224,11 +227,12 @@ func GetGeolocalisationsByMigrant(c *fiber.Ctx) error {
 
 	return c.JSON(fiber.Map{
 		"status":     "success",
-		"message":    "Geolocations for migrant retrieved successfully",
+		"message":    "Geolocations for identite retrieved successfully",
 		"data":       geolocalisations,
 		"pagination": pagination,
 	})
 }
+ 
 
 // Create geolocation
 func CreateGeolocalisation(c *fiber.Ctx) error {
@@ -243,10 +247,10 @@ func CreateGeolocalisation(c *fiber.Ctx) error {
 	}
 
 	// Validation des champs requis
-	if geolocalisation.MigrantUUID == "" {
+	if geolocalisation.IdentiteUUID == "" {
 		return c.Status(400).JSON(fiber.Map{
 			"status":  "error",
-			"message": "MigrantUUID is required",
+			"message": "IdentiteUUID is required",
 			"data":    nil,
 		})
 	}
@@ -378,7 +382,7 @@ func ExportGeolocalisationsToExcel(c *fiber.Ctx) error {
 
 	var geolocalisations []models.Geolocalisation
 
-	query := db.Model(&models.Geolocalisation{}).Preload("Migrant").Preload("Migrant.Identite")
+	query := db.Model(&models.Geolocalisation{}).Preload("Identite")
 
 	// Appliquer les filtres de date
 	if startDateStr != "" {
@@ -598,7 +602,7 @@ func ExportGeolocalisationsToExcel(c *fiber.Ctx) error {
 	headers := []string{
 		"UUID",
 		"Date de création",
-		"Numéro d'identifiant",
+		"Numéro de passeport",
 		"Latitude",
 		"Longitude",
 	}
@@ -625,10 +629,10 @@ func ExportGeolocalisationsToExcel(c *fiber.Ctx) error {
 		f.SetCellValue("Géolocalisations", cell, geo.CreatedAt.Format("02/01/2006 15:04"))
 		f.SetCellStyle("Géolocalisations", cell, cell, dateStyle)
 
-		// Numéro d'identifiant du migrant
+		// Numéro de passeport
 		cell = fmt.Sprintf("C%d", dataRow)
-		if geo.Migrant.Identite.UUID != "" {
-			f.SetCellValue("Géolocalisations", cell, geo.Migrant.NumeroIdentifiant)
+		if geo.Identite.UUID != "" {
+			f.SetCellValue("Géolocalisations", cell, geo.Identite.NumeroPasseport)
 		} else {
 			f.SetCellValue("Géolocalisations", cell, "N/A")
 		}

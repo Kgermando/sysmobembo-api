@@ -21,9 +21,9 @@ type Migrant struct {
 	NumeroIdentifiant string `json:"numero_identifiant" gorm:"unique;not null" validate:"required"`
 
 	// Informations de contact
-	Telephone       string `json:"telephone"`
-	Email           string `json:"email" gorm:"unique"`
-	
+	Telephone string `json:"telephone"`
+	Email     string `json:"email" gorm:"unique"`
+
 	AdresseActuelle string `json:"adresse_actuelle"`
 	VilleActuelle   string `json:"ville_actuelle"`
 	PaysActuel      string `json:"pays_actuel"`
@@ -44,8 +44,6 @@ type Migrant struct {
 	MotifDeplacements []MotifDeplacement `json:"motif_deplacements" gorm:"foreignKey:MigrantUUID;constraint:OnDelete:CASCADE"`
 	Alertes           []Alert            `json:"alertes" gorm:"foreignKey:MigrantUUID;constraint:OnDelete:CASCADE"`
 	Biometries        []Biometrie        `json:"biometries" gorm:"foreignKey:MigrantUUID;constraint:OnDelete:CASCADE"`
-	Geolocalisations  []Geolocalisation  `json:"geolocalisations" gorm:"foreignKey:MigrantUUID;constraint:OnDelete:CASCADE"`
-
 }
 
 func (m *Migrant) TableName() string {

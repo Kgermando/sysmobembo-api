@@ -18,7 +18,7 @@ type IndicateursDeplacementResponse struct {
 	DateGeneration       time.Time                       `json:"date_generation"`
 	PeriodeAnalyse       string                          `json:"periode_analyse"`
 }
-
+ 
 // Structures pour les données des graphiques
 type ChartDataPoint struct {
 	Name  string      `json:"name"`
