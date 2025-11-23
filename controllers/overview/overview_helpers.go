@@ -15,9 +15,9 @@ func getVolumeLocalisationIndicateurs(periode int, province string) VolumeLocali
 	db := database.DB
 	dateDebut := time.Now().AddDate(0, -periode, 0)
 
-	// Nombre total de migrants (tous les migrants actifs)
+	// Nombre total de migrants
 	var totalMigrants int64
-	query := db.Model(&models.Migrant{}).Where("actif = ? AND created_at >= ?", true, dateDebut)
+	query := db.Model(&models.Migrant{}).Where("created_at >= ?", dateDebut)
 	if province != "" {
 		query = query.Where("ville_actuelle = ? OR pays_actuel LIKE ?", province, "%"+province+"%")
 	}
@@ -27,8 +27,8 @@ func getVolumeLocalisationIndicateurs(periode int, province string) VolumeLocali
 	var deplacesInternes int64
 	deplacesQuery := db.Table("migrants m").
 		Joins("JOIN identites i ON m.identite_uuid = i.uuid").
-		Where("m.actif = ? AND m.created_at >= ? AND i.nationalite = m.pays_actuel AND i.lieu_naissance != m.ville_actuelle",
-			true, dateDebut)
+		Where("m.created_at >= ? AND i.nationalite = m.pays_actuel AND i.lieu_naissance != m.ville_actuelle",
+			dateDebut)
 	if province != "" {
 		deplacesQuery = deplacesQuery.Where("m.ville_actuelle = ? OR m.pays_actuel LIKE ?", province, "%"+province+"%")
 	}
@@ -37,14 +37,13 @@ func getVolumeLocalisationIndicateurs(periode int, province string) VolumeLocali
 	// Le nombre total PDI correspond au nombre total de migrants
 	totalPDI := totalMigrants
 
-	// Personnes retournées (basé sur type_mouvement = "residence_permanente" dans geolocalisation)
+	// Personnes retournées (approximation basée sur les géolocalisations récentes)
 	var personnesRetournees int64
 	geoQuery := db.Table("geolocalisations g").
 		Joins("JOIN migrants m ON g.migrant_uuid = m.uuid").
-		Where("g.type_mouvement = ? AND g.created_at >= ? AND m.actif = ?", "residence_permanente", dateDebut, true)
+		Where("g.created_at >= ?", dateDebut)
 	if province != "" {
-		// Utiliser à la fois g.ville (ville de géolocalisation) ET m.ville_actuelle (ville du migrant)
-		geoQuery = geoQuery.Where("(g.ville = ? OR m.ville_actuelle = ?)", province, province)
+		geoQuery = geoQuery.Where("m.ville_actuelle = ?", province)
 	}
 	geoQuery.Count(&personnesRetournees)
 
@@ -75,7 +74,7 @@ func getRepartitionGeographique(periode int, province string) []RepartitionProvi
 
 	query := db.Table("migrants").
 		Select("ville_actuelle as province, COUNT(*) as count").
-		Where("actif = ? AND created_at >= ?", true, dateDebut).
+		Where("created_at >= ?", dateDebut).
 		Group("ville_actuelle").
 		Order("count DESC")
 
@@ -118,28 +117,26 @@ func getEvolutionMensuelle(periode int, province string) []EvolutionTemporelleSt
 		// Nouveaux déplacés ce mois
 		var nouveauxDeplaces int64
 		query := db.Model(&models.Migrant{}).
-			Where("actif = ? AND created_at >= ? AND created_at < ?", true, debutMois, finMois)
+			Where("created_at >= ? AND created_at < ?", debutMois, finMois)
 		if province != "" {
 			query = query.Where("ville_actuelle = ?", province)
 		}
 		query.Count(&nouveauxDeplaces)
 
-		// Retours ce mois
+		// Retours ce mois (approximation basée sur géolocalisations)
 		var retours int64
 		geoQuery := db.Table("geolocalisations g").
 			Joins("JOIN migrants m ON g.migrant_uuid = m.uuid").
-			Where("g.type_mouvement = ? AND g.created_at >= ? AND g.created_at < ? AND m.actif = ?",
-				"residence_permanente", debutMois, finMois, true)
+			Where("g.created_at >= ? AND g.created_at < ?", debutMois, finMois)
 		if province != "" {
-			// Filtrer par la ville de géolocalisation OU la ville actuelle du migrant
-			geoQuery = geoQuery.Where("(g.ville = ? OR m.ville_actuelle = ?)", province, province)
+			geoQuery = geoQuery.Where("m.ville_actuelle = ?", province)
 		}
 		geoQuery.Count(&retours)
 
 		// Total cumulé jusqu'à cette date
 		var totalCumule int64
 		cumulQuery := db.Model(&models.Migrant{}).
-			Where("actif = ? AND created_at < ?", true, finMois)
+			Where("created_at < ?", finMois)
 		if province != "" {
 			cumulQuery = cumulQuery.Where("ville_actuelle = ?", province)
 		}
@@ -166,7 +163,7 @@ func getCausesDeplacementsIndicateurs(periode int, province string) CausesDeplac
 	var totalMotifs int64
 	motifQuery := db.Table("motif_deplacements md").
 		Joins("JOIN migrants m ON md.migrant_uuid = m.uuid").
-		Where("md.created_at >= ? AND m.actif = ?", dateDebut, true)
+		Where("md.created_at >= ?", dateDebut)
 	if province != "" {
 		motifQuery = motifQuery.Where("m.ville_actuelle = ?", province)
 	}
@@ -174,15 +171,18 @@ func getCausesDeplacementsIndicateurs(periode int, province string) CausesDeplac
 
 	// Compter par type de motif
 	var results []struct {
-		TypeMotif string `json:"type_motif"`
-		Count     int64  `json:"count"`
+		TypeMotif       string `json:"type_motif"`
+		MotifPrincipal  string `json:"motif_principal"`
+		MotifSecondaire string `json:"motif_secondaire"`
+		Description     string `json:"description"`
+		Count           int64  `json:"count"`
 	}
 
 	detailQuery := db.Table("motif_deplacements md").
-		Select("md.type_motif, COUNT(*) as count").
+		Select("md.type_motif, md.motif_principal, md.motif_secondaire, md.description, COUNT(*) as count").
 		Joins("JOIN migrants m ON md.migrant_uuid = m.uuid").
-		Where("md.created_at >= ? AND m.actif = ?", dateDebut, true).
-		Group("md.type_motif")
+		Where("md.created_at >= ?", dateDebut).
+		Group("md.type_motif, md.motif_principal, md.motif_secondaire, md.description")
 	if province != "" {
 		detailQuery = detailQuery.Where("m.ville_actuelle = ?", province)
 	}
@@ -245,22 +245,22 @@ func getVulnerabiliteBesoinsIndicateurs(periode int, province string) Vulnerabil
 		AccesLogement:  58.7,
 	}
 
-	// Taux d'occupation des sites et déplacés hors sites
+	// Taux d'occupation des sites et déplacés hors sites (approximation)
 	var deplacesHorsSites int64
 	horsQuery := db.Table("geolocalisations g").
 		Joins("JOIN migrants m ON g.migrant_uuid = m.uuid").
-		Where("g.type_localisation != ? AND g.created_at >= ? AND m.actif = ?", "centre_accueil", dateDebut, true)
+		Where("g.created_at >= ?", dateDebut)
 	if province != "" {
-		horsQuery = horsQuery.Where("(g.ville = ? OR m.ville_actuelle = ?)", province, province)
+		horsQuery = horsQuery.Where("m.ville_actuelle = ?", province)
 	}
 	horsQuery.Count(&deplacesHorsSites)
 
 	var totalDansStructures int64
 	structuresQuery := db.Table("geolocalisations g").
 		Joins("JOIN migrants m ON g.migrant_uuid = m.uuid").
-		Where("g.created_at >= ? AND m.actif = ?", dateDebut, true)
+		Where("g.created_at >= ?", dateDebut)
 	if province != "" {
-		structuresQuery = structuresQuery.Where("(g.ville = ? OR m.ville_actuelle = ?)", province, province)
+		structuresQuery = structuresQuery.Where("m.ville_actuelle = ?", province)
 	}
 	structuresQuery.Count(&totalDansStructures)
 
@@ -286,7 +286,7 @@ func getProfilDemographique(periode int, province string) ProfilDemographiqueSta
 	var ageTotal float64
 
 	// Requête de base avec les filtres de période et province
-	baseQuery := db.Model(&models.Migrant{}).Where("actif = ? AND created_at >= ?", true, dateDebut)
+	baseQuery := db.Model(&models.Migrant{}).Where("created_at >= ?", dateDebut)
 	if province != "" {
 		baseQuery = baseQuery.Where("ville_actuelle = ?", province)
 	}
@@ -297,7 +297,7 @@ func getProfilDemographique(periode int, province string) ProfilDemographiqueSta
 	// Compter les femmes - Utiliser JOIN avec identites
 	femmeQuery := db.Table("migrants m").
 		Joins("JOIN identites i ON m.identite_uuid = i.uuid").
-		Where("m.actif = ? AND m.created_at >= ? AND i.sexe = ?", true, dateDebut, "F")
+		Where("m.created_at >= ? AND i.sexe = ?", dateDebut, "F")
 	if province != "" {
 		femmeQuery = femmeQuery.Where("m.ville_actuelle = ?", province)
 	}
@@ -307,7 +307,7 @@ func getProfilDemographique(periode int, province string) ProfilDemographiqueSta
 	dateMineure := time.Now().AddDate(-18, 0, 0)
 	enfantQuery := db.Table("migrants m").
 		Joins("JOIN identites i ON m.identite_uuid = i.uuid").
-		Where("m.actif = ? AND m.created_at >= ? AND i.date_naissance > ?", true, dateDebut, dateMineure)
+		Where("m.created_at >= ? AND i.date_naissance > ?", dateDebut, dateMineure)
 	if province != "" {
 		enfantQuery = enfantQuery.Where("m.ville_actuelle = ?", province)
 	}
@@ -317,7 +317,7 @@ func getProfilDemographique(periode int, province string) ProfilDemographiqueSta
 	dateAgee := time.Now().AddDate(-65, 0, 0)
 	ageQuery := db.Table("migrants m").
 		Joins("JOIN identites i ON m.identite_uuid = i.uuid").
-		Where("m.actif = ? AND m.created_at >= ? AND i.date_naissance < ?", true, dateDebut, dateAgee)
+		Where("m.created_at >= ? AND i.date_naissance < ?", dateDebut, dateAgee)
 	if province != "" {
 		ageQuery = ageQuery.Where("m.ville_actuelle = ?", province)
 	}
@@ -325,7 +325,7 @@ func getProfilDemographique(periode int, province string) ProfilDemographiqueSta
 
 	// Calculer l'âge moyen - Utiliser la requête de base correcte
 	var migrants []models.Migrant
-	migrantsQuery := db.Model(&models.Migrant{}).Where("actif = ? AND created_at >= ?", true, dateDebut)
+	migrantsQuery := db.Model(&models.Migrant{}).Where("created_at >= ?", dateDebut)
 	if province != "" {
 		migrantsQuery = migrantsQuery.Where("ville_actuelle = ?", province)
 	}
@@ -374,7 +374,7 @@ func getDynamiquesAlerteIndicateurs(periode int, province string) DynamiquesAler
 	var mouvementsMassifs int64
 	date30Jours := time.Now().AddDate(0, 0, -30)
 	massifQuery := db.Model(&models.Migrant{}).
-		Where("actif = ? AND created_at >= ?", true, date30Jours)
+		Where("created_at >= ?", date30Jours)
 	if province != "" {
 		massifQuery = massifQuery.Where("ville_actuelle = ?", province)
 	}
@@ -398,9 +398,8 @@ func getZonesHautRisque(periode int, province string) []ZoneRisqueStats {
 	}
 
 	query := db.Table("alertes a").
-		Select("COALESCE(g.ville, m.ville_actuelle) as zone, COUNT(*) as count").
+		Select("m.ville_actuelle as zone, COUNT(*) as count").
 		Joins("JOIN migrants m ON a.migrant_uuid = m.uuid").
-		Joins("LEFT JOIN geolocalisations g ON g.migrant_uuid = m.uuid").
 		Where("a.niveau_gravite IN (?) AND a.created_at >= ? AND a.statut = ?",
 			[]string{"danger", "critical"}, dateDebut, "active").
 		Group("zone").
@@ -408,7 +407,7 @@ func getZonesHautRisque(periode int, province string) []ZoneRisqueStats {
 		Limit(10)
 
 	if province != "" {
-		query = query.Where("COALESCE(g.ville, m.ville_actuelle) = ?", province)
+		query = query.Where("m.ville_actuelle = ?", province)
 	}
 
 	query.Scan(&results)
@@ -445,18 +444,16 @@ func getTendancesRetour(periode int, province string) []TendanceRetourStats {
 	}
 
 	query := db.Table("geolocalisations g").
-		Select("i.lieu_naissance as zone_origine, g.ville as zone_retour, COUNT(*) as count").
+		Select("i.lieu_naissance as zone_origine, m.ville_actuelle as zone_retour, COUNT(*) as count").
 		Joins("JOIN migrants m ON g.migrant_uuid = m.uuid").
 		Joins("JOIN identites i ON m.identite_uuid = i.uuid").
-		Where("g.type_mouvement = ? AND g.created_at >= ? AND m.actif = ?",
-			"residence_permanente", dateDebut, true).
+		Where("g.created_at >= ?", dateDebut).
 		Group("zone_origine, zone_retour").
 		Order("count DESC").
 		Limit(10)
 
 	if province != "" {
-		// Filtrer sur la zone de retour (géolocalisation) OU ville actuelle du migrant
-		query = query.Where("(g.ville = ? OR m.ville_actuelle = ?)", province, province)
+		query = query.Where("m.ville_actuelle = ?", province)
 	}
 
 	query.Scan(&results)
@@ -510,6 +507,61 @@ func getAlertesPrecoces(periode int, province string) []AlertePrecoceStats {
 	}
 
 	return alertesStats
+}
+
+// Fonction pour récupérer les données du pie chart des motifs de déplacement
+func getMotifsPieChartData(periode int, province string) []ChartDataPoint {
+	db := database.DB
+	dateDebut := time.Now().AddDate(0, -periode, 0)
+
+	// Compter par type de motif uniquement
+	var results []struct {
+		TypeMotif string `json:"type_motif"`
+		Count     int64  `json:"count"`
+	}
+
+	query := db.Table("motif_deplacements md").
+		Select("md.type_motif, COUNT(*) as count").
+		Joins("JOIN migrants m ON md.migrant_uuid = m.uuid").
+		Where("md.created_at >= ?", dateDebut).
+		Group("md.type_motif").
+		Order("count DESC")
+
+	if province != "" {
+		query = query.Where("m.ville_actuelle = ?", province)
+	}
+
+	query.Scan(&results)
+
+	// Transformer en ChartDataPoint avec labels en français
+	var pieData []ChartDataPoint
+	motifLabels := map[string]string{
+		"economique":            "Économique",
+		"politique":             "Politique",
+		"persecution":           "Persécution",
+		"naturelle":             "Catastrophe Naturelle",
+		"familial":              "Familial",
+		"education":             "Éducation",
+		"sanitaire":             "Sanitaire",
+		"conflit_arme":          "Conflit Armé",
+		"catastrophe_naturelle": "Catastrophe Naturelle",
+		"violence_generalisee":  "Violence Généralisée",
+	}
+
+	for _, result := range results {
+		label := motifLabels[result.TypeMotif]
+		if label == "" {
+			label = result.TypeMotif // Utiliser la valeur brute si pas de traduction
+		}
+
+		pieData = append(pieData, ChartDataPoint{
+			Name:  label,
+			Value: float64(result.Count),
+			Extra: result.TypeMotif, // Garder la valeur originale en extra
+		})
+	}
+
+	return pieData
 }
 
 // Fonction pour récupérer les alertes récentes (utilisée par GetAlertesTempsReel)

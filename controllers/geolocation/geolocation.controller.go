@@ -192,16 +192,6 @@ func GetGeolocalisationsByMigrant(c *fiber.Ctx) error {
 	var geolocalisations []models.Geolocalisation
 	var totalRecords int64
 
-	// Vérifier que le migrant existe
-	var migrant models.Migrant
-	if err := db.Where("uuid = ?", migrantUUID).First(&migrant).Error; err != nil {
-		return c.Status(404).JSON(fiber.Map{
-			"status":  "error",
-			"message": "Migrant not found",
-			"data":    nil,
-		})
-	}
-
 	query := db.Model(&models.Geolocalisation{}).
 		Where("migrant_uuid = ?", migrantUUID).
 		Preload("Migrant")
@@ -237,7 +227,6 @@ func GetGeolocalisationsByMigrant(c *fiber.Ctx) error {
 		"message":    "Geolocations for migrant retrieved successfully",
 		"data":       geolocalisations,
 		"pagination": pagination,
-		"migrant":    migrant,
 	})
 }
 
@@ -254,10 +243,10 @@ func CreateGeolocalisation(c *fiber.Ctx) error {
 	}
 
 	// Validation des champs requis
-	if geolocalisation.MigrantUUID == "" || geolocalisation.TypeLocalisation == "" || geolocalisation.Pays == "" {
+	if geolocalisation.MigrantUUID == "" {
 		return c.Status(400).JSON(fiber.Map{
 			"status":  "error",
-			"message": "MigrantUUID, TypeLocalisation, and Pays are required",
+			"message": "MigrantUUID is required",
 			"data":    nil,
 		})
 	}
@@ -267,16 +256,6 @@ func CreateGeolocalisation(c *fiber.Ctx) error {
 		return c.Status(400).JSON(fiber.Map{
 			"status":  "error",
 			"message": err.Error(),
-			"data":    nil,
-		})
-	}
-
-	// Vérifier que le migrant existe
-	var migrant models.Migrant
-	if err := database.DB.Where("uuid = ?", geolocalisation.MigrantUUID).First(&migrant).Error; err != nil {
-		return c.Status(404).JSON(fiber.Map{
-			"status":  "error",
-			"message": "Migrant not found",
 			"data":    nil,
 		})
 	}
@@ -296,9 +275,6 @@ func CreateGeolocalisation(c *fiber.Ctx) error {
 			"error":   err.Error(),
 		})
 	}
-
-	// Recharger avec les relations
-	database.DB.Preload("Migrant").First(geolocalisation, "uuid = ?", geolocalisation.UUID)
 
 	return c.JSON(fiber.Map{
 		"status":  "success",
@@ -352,9 +328,6 @@ func UpdateGeolocalisation(c *fiber.Ctx) error {
 		})
 	}
 
-	// Recharger avec les relations
-	db.Preload("Migrant").First(&geolocalisation)
-
 	return c.JSON(fiber.Map{
 		"status":  "success",
 		"message": "Geolocation updated successfully",
@@ -392,59 +365,6 @@ func DeleteGeolocalisation(c *fiber.Ctx) error {
 }
 
 // =======================
-// ANALYTICS & STATISTICS
-// =======================
-
-// Get geolocations statistics
-func GetGeolocalisationsStats(c *fiber.Ctx) error {
-	db := database.DB
-
-	var totalGeolocalisations int64
-
-	// Statistiques générales
-	db.Model(&models.Geolocalisation{}).Count(&totalGeolocalisations)
-
-	// Statistiques par type de localisation
-	var localisationTypes []map[string]interface{}
-	db.Model(&models.Geolocalisation{}).
-		Select("type_localisation, COUNT(*) as count").
-		Group("type_localisation").
-		Order("count DESC").
-		Scan(&localisationTypes)
-
-	// Statistiques par pays
-	var countryStats []map[string]interface{}
-	db.Model(&models.Geolocalisation{}).
-		Select("pays, COUNT(*) as count").
-		Group("pays").
-		Order("count DESC").
-		Limit(10).
-		Scan(&countryStats)
-
-	// Statistiques par type de mouvement
-	var movementStats []map[string]interface{}
-	db.Model(&models.Geolocalisation{}).
-		Where("type_mouvement IS NOT NULL AND type_mouvement != ''").
-		Select("type_mouvement, COUNT(*) as count").
-		Group("type_mouvement").
-		Order("count DESC").
-		Scan(&movementStats)
-
-	stats := map[string]interface{}{
-		"total_geolocations":   totalGeolocalisations,
-		"location_types":       localisationTypes,
-		"country_distribution": countryStats,
-		"movement_types":       movementStats,
-	}
-
-	return c.JSON(fiber.Map{
-		"status":  "success",
-		"message": "Geolocations statistics",
-		"data":    stats,
-	})
-}
-
-// =======================
 // EXCEL EXPORT
 // =======================
 
@@ -452,24 +372,28 @@ func GetGeolocalisationsStats(c *fiber.Ctx) error {
 func ExportGeolocalisationsToExcel(c *fiber.Ctx) error {
 	db := database.DB
 
-	// Récupérer les paramètres de filtre
-	migrantUUID := c.Query("migrant_uuid", "")
-	typeLocalisation := c.Query("type_localisation", "")
-	pays := c.Query("pays", "")
+	// Récupérer les paramètres de filtre de date
+	startDateStr := c.Query("start_date", "")
+	endDateStr := c.Query("end_date", "")
 
 	var geolocalisations []models.Geolocalisation
 
-	query := db.Model(&models.Geolocalisation{}).Preload("Migrant")
+	query := db.Model(&models.Geolocalisation{}).Preload("Migrant").Preload("Migrant.Identite")
 
-	// Appliquer les filtres
-	if migrantUUID != "" {
-		query = query.Where("migrant_uuid = ?", migrantUUID)
+	// Appliquer les filtres de date
+	if startDateStr != "" {
+		startDate, err := time.Parse("2006-01-02", startDateStr)
+		if err == nil {
+			query = query.Where("created_at >= ?", startDate)
+		}
 	}
-	if typeLocalisation != "" {
-		query = query.Where("type_localisation = ?", typeLocalisation)
-	}
-	if pays != "" {
-		query = query.Where("pays ILIKE ?", "%"+pays+"%")
+	if endDateStr != "" {
+		endDate, err := time.Parse("2006-01-02", endDateStr)
+		if err == nil {
+			// Ajouter 23:59:59 pour inclure toute la journée
+			endDate = endDate.Add(23*time.Hour + 59*time.Minute + 59*time.Second)
+			query = query.Where("created_at <= ?", endDate)
+		}
 	}
 
 	// Récupérer toutes les données
@@ -649,26 +573,22 @@ func ExportGeolocalisationsToExcel(c *fiber.Ctx) error {
 	currentTime := time.Now().Format("02/01/2006 15:04")
 	mainHeader := fmt.Sprintf("RAPPORT D'EXPORT DES GÉOLOCALISATIONS - %s", currentTime)
 	f.SetCellValue("Géolocalisations", "A1", mainHeader)
-	f.MergeCell("Géolocalisations", "A1", "P1")
-	f.SetCellStyle("Géolocalisations", "A1", "P1", headerStyle)
+	f.MergeCell("Géolocalisations", "A1", "E1")
+	f.SetCellStyle("Géolocalisations", "A1", "E1", headerStyle)
 	f.SetRowHeight("Géolocalisations", 1, 30)
 
 	// ===== INFORMATIONS DE FILTRE =====
 	row := 3
-	if migrantUUID != "" || typeLocalisation != "" || pays != "" {
+	if startDateStr != "" || endDateStr != "" {
 		f.SetCellValue("Géolocalisations", "A2", "Filtres appliqués:")
 		f.SetCellStyle("Géolocalisations", "A2", "A2", columnHeaderStyle)
 
-		if migrantUUID != "" {
-			f.SetCellValue("Géolocalisations", fmt.Sprintf("A%d", row), fmt.Sprintf("Migrant UUID: %s", migrantUUID))
+		if startDateStr != "" {
+			f.SetCellValue("Géolocalisations", fmt.Sprintf("A%d", row), fmt.Sprintf("Date de début: %s", startDateStr))
 			row++
 		}
-		if typeLocalisation != "" {
-			f.SetCellValue("Géolocalisations", fmt.Sprintf("A%d", row), fmt.Sprintf("Type de localisation: %s", typeLocalisation))
-			row++
-		}
-		if pays != "" {
-			f.SetCellValue("Géolocalisations", fmt.Sprintf("A%d", row), fmt.Sprintf("Pays: %s", pays))
+		if endDateStr != "" {
+			f.SetCellValue("Géolocalisations", fmt.Sprintf("A%d", row), fmt.Sprintf("Date de fin: %s", endDateStr))
 			row++
 		}
 		row++ // Ligne vide
@@ -678,20 +598,9 @@ func ExportGeolocalisationsToExcel(c *fiber.Ctx) error {
 	headers := []string{
 		"UUID",
 		"Date de création",
-		"Migrant UUID",
-		"Nom du migrant",
-		"Prénom du migrant",
+		"Numéro d'identifiant",
 		"Latitude",
 		"Longitude",
-		"Type de localisation",
-		"Description",
-		"Adresse",
-		"Ville",
-		"Pays",
-		"Type de mouvement",
-		"Durée de séjour (jours)",
-		"Prochaine destination",
-		"Date de mise à jour",
 	}
 
 	// Écrire les en-têtes
@@ -716,107 +625,24 @@ func ExportGeolocalisationsToExcel(c *fiber.Ctx) error {
 		f.SetCellValue("Géolocalisations", cell, geo.CreatedAt.Format("02/01/2006 15:04"))
 		f.SetCellStyle("Géolocalisations", cell, cell, dateStyle)
 
-		// Migrant UUID
+		// Numéro d'identifiant du migrant
 		cell = fmt.Sprintf("C%d", dataRow)
-		f.SetCellValue("Géolocalisations", cell, geo.MigrantUUID)
+		if geo.Migrant.Identite.UUID != "" {
+			f.SetCellValue("Géolocalisations", cell, geo.Migrant.NumeroIdentifiant)
+		} else {
+			f.SetCellValue("Géolocalisations", cell, "N/A")
+		}
 		f.SetCellStyle("Géolocalisations", cell, cell, dataStyle)
 
-		// Nom du migrant
-		cell = fmt.Sprintf("D%d", dataRow)
-		if geo.Migrant.Identite.UUID != "" {
-			f.SetCellValue("Éolocalisations", cell, geo.Migrant.Identite.Nom)
-		} else {
-			f.SetCellValue("Éolocalisations", cell, "N/A")
-		}
-		f.SetCellStyle("Éolocalisations", cell, cell, dataStyle)
-
-		// Prénom du migrant
-		cell = fmt.Sprintf("E%d", dataRow)
-		if geo.Migrant.Identite.UUID != "" {
-			f.SetCellValue("Éolocalisations", cell, geo.Migrant.Identite.Prenom)
-		} else {
-			f.SetCellValue("Éolocalisations", cell, "N/A")
-		}
-		f.SetCellStyle("Éolocalisations", cell, cell, dataStyle)
-
 		// Latitude
-		cell = fmt.Sprintf("F%d", dataRow)
+		cell = fmt.Sprintf("D%d", dataRow)
 		f.SetCellValue("Géolocalisations", cell, geo.Latitude)
 		f.SetCellStyle("Géolocalisations", cell, cell, numberStyle)
 
 		// Longitude
-		cell = fmt.Sprintf("G%d", dataRow)
+		cell = fmt.Sprintf("E%d", dataRow)
 		f.SetCellValue("Géolocalisations", cell, geo.Longitude)
 		f.SetCellStyle("Géolocalisations", cell, cell, numberStyle)
-
-		// Type de localisation
-		cell = fmt.Sprintf("H%d", dataRow)
-		f.SetCellValue("Géolocalisations", cell, geo.TypeLocalisation)
-		f.SetCellStyle("Géolocalisations", cell, cell, dataStyle)
-
-		// Description
-		cell = fmt.Sprintf("I%d", dataRow)
-		if geo.Description != "" {
-			f.SetCellValue("Géolocalisations", cell, geo.Description)
-		} else {
-			f.SetCellValue("Géolocalisations", cell, "")
-		}
-		f.SetCellStyle("Géolocalisations", cell, cell, dataStyle)
-
-		// Adresse
-		cell = fmt.Sprintf("J%d", dataRow)
-		if geo.Adresse != "" {
-			f.SetCellValue("Géolocalisations", cell, geo.Adresse)
-		} else {
-			f.SetCellValue("Géolocalisations", cell, "")
-		}
-		f.SetCellStyle("Géolocalisations", cell, cell, dataStyle)
-
-		// Ville
-		cell = fmt.Sprintf("K%d", dataRow)
-		if geo.Ville != "" {
-			f.SetCellValue("Géolocalisations", cell, geo.Ville)
-		} else {
-			f.SetCellValue("Géolocalisations", cell, "")
-		}
-		f.SetCellStyle("Géolocalisations", cell, cell, dataStyle)
-
-		// Pays
-		cell = fmt.Sprintf("L%d", dataRow)
-		f.SetCellValue("Géolocalisations", cell, geo.Pays)
-		f.SetCellStyle("Géolocalisations", cell, cell, dataStyle)
-
-		// Type de mouvement
-		cell = fmt.Sprintf("M%d", dataRow)
-		if geo.TypeMouvement != "" {
-			f.SetCellValue("Géolocalisations", cell, geo.TypeMouvement)
-		} else {
-			f.SetCellValue("Géolocalisations", cell, "")
-		}
-		f.SetCellStyle("Géolocalisations", cell, cell, dataStyle)
-
-		// Durée de séjour
-		cell = fmt.Sprintf("N%d", dataRow)
-		if geo.DureeSejour != nil {
-			f.SetCellValue("Géolocalisations", cell, *geo.DureeSejour)
-		} else {
-			f.SetCellValue("Géolocalisations", cell, "")
-		}
-		f.SetCellStyle("Géolocalisations", cell, cell, numberStyle)
-
-		// Prochaine destination
-		cell = fmt.Sprintf("O%d", dataRow)
-		if geo.ProchaineDest != "" {
-			f.SetCellValue("Géolocalisations", cell, geo.ProchaineDest)
-		} else {
-			f.SetCellValue("Géolocalisations", cell, "")
-		}
-		f.SetCellStyle("Géolocalisations", cell, cell, dataStyle)
-
-		// Date de mise à jour
-		cell = fmt.Sprintf("P%d", dataRow)
-		f.SetCellValue("Géolocalisations", cell, geo.UpdatedAt.Format("02/01/2006 15:04"))
-		f.SetCellStyle("Géolocalisations", cell, cell, dateStyle)
 
 		// Définir la hauteur de ligne
 		f.SetRowHeight("Géolocalisations", dataRow, 20)
@@ -826,20 +652,9 @@ func ExportGeolocalisationsToExcel(c *fiber.Ctx) error {
 	columnWidths := []float64{
 		25, // UUID
 		18, // Date création
-		25, // Migrant UUID
-		15, // Nom
-		15, // Prénom
+		20, // Numéro identifiant
 		12, // Latitude
 		12, // Longitude
-		20, // Type localisation
-		30, // Description
-		25, // Adresse
-		15, // Ville
-		15, // Pays
-		18, // Type mouvement
-		12, // Durée séjour
-		20, // Prochaine dest
-		18, // Date MAJ
 	}
 
 	for i, width := range columnWidths {
@@ -853,19 +668,6 @@ func ExportGeolocalisationsToExcel(c *fiber.Ctx) error {
 		// Calculer les statistiques
 		totalRecords := len(geolocalisations)
 
-		// Compter par type de localisation
-		typeCount := make(map[string]int)
-		paysList := make(map[string]int)
-		mouvementCount := make(map[string]int)
-
-		for _, geo := range geolocalisations {
-			typeCount[geo.TypeLocalisation]++
-			paysList[geo.Pays]++
-			if geo.TypeMouvement != "" {
-				mouvementCount[geo.TypeMouvement]++
-			}
-		}
-
 		// En-tête de la feuille statistiques
 		f.SetCellValue("Statistiques", "A1", "STATISTIQUES DES GÉOLOCALISATIONS")
 		f.MergeCell("Statistiques", "A1", "C1")
@@ -874,41 +676,6 @@ func ExportGeolocalisationsToExcel(c *fiber.Ctx) error {
 		row = 3
 		f.SetCellValue("Statistiques", fmt.Sprintf("A%d", row), "Total des enregistrements:")
 		f.SetCellValue("Statistiques", fmt.Sprintf("B%d", row), totalRecords)
-		row += 2
-
-		// Types de localisation
-		f.SetCellValue("Statistiques", fmt.Sprintf("A%d", row), "Par type de localisation:")
-		f.SetCellStyle("Statistiques", fmt.Sprintf("A%d", row), fmt.Sprintf("A%d", row), columnHeaderStyle)
-		row++
-		for typeLocal, count := range typeCount {
-			f.SetCellValue("Statistiques", fmt.Sprintf("A%d", row), typeLocal)
-			f.SetCellValue("Statistiques", fmt.Sprintf("B%d", row), count)
-			row++
-		}
-		row++
-
-		// Par pays
-		f.SetCellValue("Statistiques", fmt.Sprintf("A%d", row), "Par pays:")
-		f.SetCellStyle("Statistiques", fmt.Sprintf("A%d", row), fmt.Sprintf("A%d", row), columnHeaderStyle)
-		row++
-		for pays, count := range paysList {
-			f.SetCellValue("Statistiques", fmt.Sprintf("A%d", row), pays)
-			f.SetCellValue("Statistiques", fmt.Sprintf("B%d", row), count)
-			row++
-		}
-		row++
-
-		// Par type de mouvement
-		if len(mouvementCount) > 0 {
-			f.SetCellValue("Statistiques", fmt.Sprintf("A%d", row), "Par type de mouvement:")
-			f.SetCellStyle("Statistiques", fmt.Sprintf("A%d", row), fmt.Sprintf("A%d", row), columnHeaderStyle)
-			row++
-			for mouvement, count := range mouvementCount {
-				f.SetCellValue("Statistiques", fmt.Sprintf("A%d", row), mouvement)
-				f.SetCellValue("Statistiques", fmt.Sprintf("B%d", row), count)
-				row++
-			}
-		}
 
 		f.SetColWidth("Statistiques", "A", "A", 25)
 		f.SetColWidth("Statistiques", "B", "B", 15)

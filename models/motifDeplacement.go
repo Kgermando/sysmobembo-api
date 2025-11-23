@@ -13,10 +13,11 @@ type MotifDeplacement struct {
 	UpdatedAt time.Time      `json:"updated_at"`
 	DeletedAt gorm.DeletedAt `gorm:"index" json:"deleted_at"`
 
-	MigrantUUID string `json:"migrant_uuid" gorm:"type:varchar(255);not null"`
+	MigrantUUID string  `json:"migrant_uuid" gorm:"type:varchar(255);not null"`
+	Migrant     Migrant `json:"migrant" gorm:"foreignKey:MigrantUUID;constraint:OnDelete:CASCADE"`
 
 	// Types de motifs
-	TypeMotif       string `json:"type_motif" validate:"required,oneof=economique politique persecution naturelle familial education sanitaire"`
+	TypeMotif       string `json:"type_motif" validate:"required,oneof=economique politique persecution naturelle familial education sanitaire conflit_arme catastrophe_naturelle violence_generalisee"`
 	MotifPrincipal  string `json:"motif_principal" validate:"required"`
 	MotifSecondaire string `json:"motif_secondaire"`
 	Description     string `json:"description" gorm:"type:text"`
@@ -26,15 +27,7 @@ type MotifDeplacement struct {
 	Urgence             string    `json:"urgence" validate:"oneof=faible moyenne elevee critique"`
 	DateDeclenchement   time.Time `json:"date_declenchement" validate:"required"`
 	DureeEstimee        int       `json:"duree_estimee"` // en jours
-
-	// Facteurs externes
-	ConflitArme          bool `json:"conflit_arme" gorm:"default:false"`
-	CatastropheNaturelle bool `json:"catastrophe_naturelle" gorm:"default:false"`
-	Persecution          bool `json:"persecution" gorm:"default:false"`
-	ViolenceGeneralisee  bool `json:"violence_generalisee" gorm:"default:false"`
-
-	// Relation avec Migrant
-	Migrant Migrant `json:"migrant" gorm:"constraint:OnDelete:CASCADE"`
+  
 }
 
 func (md *MotifDeplacement) TableName() string {

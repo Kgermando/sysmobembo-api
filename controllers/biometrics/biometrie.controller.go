@@ -103,31 +103,21 @@ func GetPaginatedBiometries(c *fiber.Ctx) error {
 	}
 	offset := (page - 1) * limit
 
-	migrantUUID := c.Query("migrant_uuid", "")
-	typeBiometrie := c.Query("type_biometrie", "")
-	verifie := c.Query("verifie", "")
+	// Récupérer le paramètre de recherche
+	search := c.Query("search", "")
 
 	var biometries []models.Biometrie
 	var totalRecords int64
 
 	query := db.Model(&models.Biometrie{}).
 		Preload("Migrant").
-		Select("uuid, migrant_uuid, type_biometrie, index_doigt, qualite_donnee, algorithme_encodage, taille_fichier, date_capture, disposif_capture, verifie, score_confiance, chiffre, created_at, updated_at") // Exclure les données sensibles
+		Select("uuid, numero_identifiant, type_biometrie, index_doigt, qualite_donnee, algorithme_encodage, taille_fichier, date_capture, disposif_capture, verifie, score_confiance, chiffre, created_at, updated_at") // Exclure les données sensibles
 
-	// Filtrer par migrant si spécifié
-	if migrantUUID != "" {
-		query = query.Where("migrant_uuid = ?", migrantUUID)
-	}
-
-	// Filtrer par type de biométrie
-	if typeBiometrie != "" {
-		query = query.Where("type_biometrie = ?", typeBiometrie)
-	}
-
-	// Filtrer par statut de vérification
-	if verifie != "" {
-		isVerified := verifie == "true"
-		query = query.Where("verifie = ?", isVerified)
+	// Appliquer la recherche si le paramètre est fourni
+	if search != "" {
+		query = query.Joins("LEFT JOIN migrants ON migrants.uuid = biometries.migrant_uuid").
+			Where("biometries.type_biometrie ILIKE ? OR biometries.qualite_donnee ILIKE ? OR biometries.disposif_capture ILIKE ?",
+				"%"+search+"%", "%"+search+"%", "%"+search+"%")
 	}
 
 	// Count total
@@ -136,7 +126,7 @@ func GetPaginatedBiometries(c *fiber.Ctx) error {
 	// Get paginated results
 	err = query.Offset(offset).
 		Limit(limit).
-		Order("created_at DESC").
+		Order("biometries.created_at DESC").
 		Find(&biometries).Error
 
 	if err != nil {
@@ -169,7 +159,7 @@ func GetAllBiometries(c *fiber.Ctx) error {
 	db := database.DB
 	var biometries []models.Biometrie
 
-	err := db.Select("uuid, migrant_uuid, type_biometrie, index_doigt, qualite_donnee, algorithme_encodage, taille_fichier, date_capture, disposif_capture, verifie, score_confiance, chiffre, created_at, updated_at").
+	err := db.Select("uuid, numero_identifiant, type_biometrie, index_doigt, qualite_donnee, algorithme_encodage, taille_fichier, date_capture, disposif_capture, verifie, score_confiance, chiffre, created_at, updated_at").
 		Preload("Migrant").
 		Find(&biometries).Error
 
@@ -219,15 +209,35 @@ func GetBiometrie(c *fiber.Ctx) error {
 	})
 }
 
-// Get biometries by migrant
+// Get biometries by migrant with pagination
 func GetBiometriesByMigrant(c *fiber.Ctx) error {
 	migrantUUID := c.Params("migrant_uuid")
 	db := database.DB
-	var biometries []models.Biometrie
 
-	err := db.Where("migrant_uuid = ?", migrantUUID).
-		Select("uuid, migrant_uuid, type_biometrie, index_doigt, qualite_donnee, algorithme_encodage, taille_fichier, date_capture, disposif_capture, verifie, score_confiance, chiffre, created_at, updated_at").
-		Preload("Migrant").
+	page, err := strconv.Atoi(c.Query("page", "1"))
+	if err != nil || page <= 0 {
+		page = 1
+	}
+	limit, err := strconv.Atoi(c.Query("limit", "15"))
+	if err != nil || limit <= 0 {
+		limit = 15
+	}
+	offset := (page - 1) * limit
+
+	var biometries []models.Biometrie
+	var totalRecords int64
+
+	query := db.Model(&models.Biometrie{}).
+		Where("migrant_uuid = ?", migrantUUID).
+		Select("uuid, numero_identifiant, type_biometrie, index_doigt, qualite_donnee, algorithme_encodage, taille_fichier, date_capture, disposif_capture, verifie, score_confiance, chiffre, created_at, updated_at")
+
+	// Count total
+	query.Count(&totalRecords)
+
+	// Get paginated results
+	err = query.Preload("Migrant").
+		Offset(offset).
+		Limit(limit).
 		Order("created_at DESC").
 		Find(&biometries).Error
 
@@ -239,36 +249,20 @@ func GetBiometriesByMigrant(c *fiber.Ctx) error {
 		})
 	}
 
-	return c.JSON(fiber.Map{
-		"status":  "success",
-		"message": "Biometric data for migrant",
-		"data":    biometries,
-	})
-}
+	totalPages := int((totalRecords + int64(limit) - 1) / int64(limit))
 
-// Get verified biometries
-func GetVerifiedBiometries(c *fiber.Ctx) error {
-	db := database.DB
-	var biometries []models.Biometrie
-
-	err := db.Where("verifie = ?", true).
-		Select("uuid, migrant_uuid, type_biometrie, index_doigt, qualite_donnee, algorithme_encodage, taille_fichier, date_capture, disposif_capture, verifie, score_confiance, chiffre, created_at, updated_at").
-		Preload("Migrant").
-		Order("score_confiance DESC").
-		Find(&biometries).Error
-
-	if err != nil {
-		return c.Status(500).JSON(fiber.Map{
-			"status":  "error",
-			"message": "Failed to fetch verified biometric data",
-			"error":   err.Error(),
-		})
+	pagination := map[string]interface{}{
+		"total_records": totalRecords,
+		"total_pages":   totalPages,
+		"current_page":  page,
+		"page_size":     limit,
 	}
 
 	return c.JSON(fiber.Map{
-		"status":  "success",
-		"message": "Verified biometric data",
-		"data":    biometries,
+		"status":     "success",
+		"message":    "Biometric data for migrant",
+		"data":       biometries,
+		"pagination": pagination,
 	})
 }
 
@@ -281,25 +275,6 @@ func CreateBiometrie(c *fiber.Ctx) error {
 			"status":  "error",
 			"message": "Invalid request format",
 			"error":   err.Error(),
-		})
-	}
-
-	// Validation des champs requis
-	if biometrie.MigrantUUID == "" || biometrie.TypeBiometrie == "" || biometrie.DonneesBiometriques == "" {
-		return c.Status(400).JSON(fiber.Map{
-			"status":  "error",
-			"message": "MigrantUUID, TypeBiometrie, and DonneesBiometriques are required",
-			"data":    nil,
-		})
-	}
-
-	// Vérifier que le migrant existe
-	var migrant models.Migrant
-	if err := database.DB.Where("uuid = ?", biometrie.MigrantUUID).First(&migrant).Error; err != nil {
-		return c.Status(404).JSON(fiber.Map{
-			"status":  "error",
-			"message": "Migrant not found",
-			"data":    nil,
 		})
 	}
 
@@ -328,28 +303,6 @@ func CreateBiometrie(c *fiber.Ctx) error {
 		biometrie.QualiteDonnee = assessDataQuality(biometrie.TailleFichier, biometrie.TypeBiometrie)
 	}
 
-	// Validation des données
-	if err := utils.ValidateStruct(*biometrie); err != nil {
-		return c.Status(400).JSON(err)
-	}
-
-	// Vérifier l'unicité pour le même type de biométrie et migrant
-	var existingBiometrie models.Biometrie
-	query := database.DB.Where("migrant_uuid = ? AND type_biometrie = ?", biometrie.MigrantUUID, biometrie.TypeBiometrie)
-
-	// Pour les empreintes digitales, vérifier aussi l'index du doigt
-	if biometrie.TypeBiometrie == "empreinte_digitale" && biometrie.IndexDoigt != nil {
-		query = query.Where("index_doigt = ?", *biometrie.IndexDoigt)
-	}
-
-	if err := query.First(&existingBiometrie).Error; err == nil {
-		return c.Status(400).JSON(fiber.Map{
-			"status":  "error",
-			"message": "Biometric data of this type already exists for this migrant",
-			"data":    nil,
-		})
-	}
-
 	if err := database.DB.Create(biometrie).Error; err != nil {
 		return c.Status(500).JSON(fiber.Map{
 			"status":  "error",
@@ -358,69 +311,9 @@ func CreateBiometrie(c *fiber.Ctx) error {
 		})
 	}
 
-	// Recharger sans les données sensibles
-	database.DB.Select("uuid, migrant_uuid, type_biometrie, index_doigt, qualite_donnee, algorithme_encodage, taille_fichier, date_capture, disposif_capture, verifie, score_confiance, chiffre, created_at, updated_at").
-		Preload("Migrant").
-		First(biometrie, "uuid = ?", biometrie.UUID)
-
 	return c.JSON(fiber.Map{
 		"status":  "success",
 		"message": "Biometric data created successfully",
-		"data":    biometrie,
-	})
-}
-
-// Verify biometry
-func VerifyBiometrie(c *fiber.Ctx) error {
-	uuid := c.Params("uuid")
-	db := database.DB
-
-	var verificationData struct {
-		ScoreConfiance        float64 `json:"score_confiance"`
-		OperateurVerification string  `json:"operateur_verification"`
-	}
-
-	if err := c.BodyParser(&verificationData); err != nil {
-		return c.Status(400).JSON(fiber.Map{
-			"status":  "error",
-			"message": "Invalid request format",
-			"error":   err.Error(),
-		})
-	}
-
-	var biometrie models.Biometrie
-	if err := db.Where("uuid = ?", uuid).First(&biometrie).Error; err != nil {
-		return c.Status(404).JSON(fiber.Map{
-			"status":  "error",
-			"message": "Biometric data not found",
-			"data":    nil,
-		})
-	}
-
-	// Marquer comme vérifié
-	now := time.Now()
-	updateData := map[string]interface{}{
-		"verifie":           true,
-		"date_verification": &now,
-		"score_confiance":   verificationData.ScoreConfiance,
-	}
-
-	if err := db.Model(&biometrie).Updates(updateData).Error; err != nil {
-		return c.Status(500).JSON(fiber.Map{
-			"status":  "error",
-			"message": "Failed to verify biometric data",
-			"error":   err.Error(),
-		})
-	}
-
-	// Recharger sans données sensibles
-	db.Select("uuid, migrant_uuid, type_biometrie, index_doigt, qualite_donnee, algorithme_encodage, taille_fichier, date_capture, disposif_capture, verifie, score_confiance, chiffre, created_at, updated_at").
-		Preload("Migrant").
-		First(&biometrie)
-
-	return c.JSON(fiber.Map{
-		"status":  "success",
-		"message": "Biometric data verified successfully",
 		"data":    biometrie,
 	})
 }
@@ -461,11 +354,6 @@ func UpdateBiometrie(c *fiber.Ctx) error {
 			"error":   err.Error(),
 		})
 	}
-
-	// Recharger sans données sensibles
-	db.Select("uuid, migrant_uuid, type_biometrie, index_doigt, qualite_donnee, algorithme_encodage, taille_fichier, date_capture, disposif_capture, verifie, score_confiance, chiffre, created_at, updated_at").
-		Preload("Migrant").
-		First(&biometrie)
 
 	return c.JSON(fiber.Map{
 		"status":  "success",
@@ -578,45 +466,28 @@ func GetBiometricsStats(c *fiber.Ctx) error {
 func ExportBiometriesToExcel(c *fiber.Ctx) error {
 	db := database.DB
 
-	// Récupérer les paramètres de filtre
-	migrantUUID := c.Query("migrant_uuid", "")
-	typeBiometrie := c.Query("type_biometrie", "")
-	qualiteDonnee := c.Query("qualite_donnee", "")
-	verifie := c.Query("verifie", "")
-	chiffre := c.Query("chiffre", "")
-	dispositifCapture := c.Query("dispositif_capture", "")
+	// Récupérer les paramètres de date
+	startDate := c.Query("start_date", "")
+	endDate := c.Query("end_date", "")
 
 	var biometries []models.Biometrie
 
 	query := db.Model(&models.Biometrie{}).Preload("Migrant")
 
-	// Appliquer les filtres
-	if migrantUUID != "" {
-		query = query.Where("migrant_uuid = ?", migrantUUID)
-	}
-	if typeBiometrie != "" {
-		query = query.Where("type_biometrie = ?", typeBiometrie)
-	}
-	if qualiteDonnee != "" {
-		query = query.Where("qualite_donnee = ?", qualiteDonnee)
-	}
-	if verifie != "" {
-		switch verifie {
-		case "true":
-			query = query.Where("verifie = ?", true)
-		case "false":
-			query = query.Where("verifie = ?", false)
+	// Appliquer les filtres de date
+	if startDate != "" {
+		parsedStartDate, err := time.Parse("2006-01-02", startDate)
+		if err == nil {
+			query = query.Where("biometries.created_at >= ?", parsedStartDate)
 		}
 	}
-	if chiffre != "" {
-		if chiffre == "true" {
-			query = query.Where("chiffre = ?", true)
-		} else if chiffre == "false" {
-			query = query.Where("chiffre = ?", false)
+	if endDate != "" {
+		parsedEndDate, err := time.Parse("2006-01-02", endDate)
+		if err == nil {
+			// Ajouter 23:59:59 pour inclure toute la journée
+			parsedEndDate = parsedEndDate.Add(23*time.Hour + 59*time.Minute + 59*time.Second)
+			query = query.Where("biometries.created_at <= ?", parsedEndDate)
 		}
-	}
-	if dispositifCapture != "" {
-		query = query.Where("dispositif_capture ILIKE ?", "%"+dispositifCapture+"%")
 	}
 
 	// Récupérer toutes les données
@@ -756,7 +627,7 @@ func ExportBiometriesToExcel(c *fiber.Ctx) error {
 			{Type: "bottom", Color: "CCCCCC", Style: 1},
 			{Type: "right", Color: "CCCCCC", Style: 1},
 		},
-		NumFmt: 1, // Format numérique sans décimales
+		NumFmt: 1,
 	})
 	if err != nil {
 		return c.Status(500).JSON(fiber.Map{
@@ -782,7 +653,7 @@ func ExportBiometriesToExcel(c *fiber.Ctx) error {
 			{Type: "bottom", Color: "CCCCCC", Style: 1},
 			{Type: "right", Color: "CCCCCC", Style: 1},
 		},
-		NumFmt: 14, // Format de date mm/dd/yyyy
+		NumFmt: 14,
 	})
 	if err != nil {
 		return c.Status(500).JSON(fiber.Map{
@@ -834,7 +705,7 @@ func ExportBiometriesToExcel(c *fiber.Ctx) error {
 			{Type: "bottom", Color: "CCCCCC", Style: 1},
 			{Type: "right", Color: "CCCCCC", Style: 1},
 		},
-		NumFmt: 4, // Format avec 2 décimales
+		NumFmt: 4,
 	})
 	if err != nil {
 		return c.Status(500).JSON(fiber.Map{
@@ -848,55 +719,37 @@ func ExportBiometriesToExcel(c *fiber.Ctx) error {
 	currentTime := time.Now().Format("02/01/2006 15:04")
 	mainHeader := fmt.Sprintf("RAPPORT D'EXPORT DES BIOMÉTRIES - %s", currentTime)
 	f.SetCellValue("Biométries", "A1", mainHeader)
-	f.MergeCell("Biométries", "A1", "T1")
-	f.SetCellStyle("Biométries", "A1", "T1", headerStyle)
+	f.MergeCell("Biométries", "A1", "R1")
+	f.SetCellStyle("Biométries", "A1", "R1", headerStyle)
 	f.SetRowHeight("Biométries", 1, 30)
 
 	// ===== INFORMATIONS DE FILTRE =====
 	row := 3
 	filterApplied := false
-	if migrantUUID != "" || typeBiometrie != "" || qualiteDonnee != "" || verifie != "" || chiffre != "" || dispositifCapture != "" {
+	if startDate != "" || endDate != "" {
 		f.SetCellValue("Biométries", "A2", "Filtres appliqués:")
 		f.SetCellStyle("Biométries", "A2", "A2", columnHeaderStyle)
 		filterApplied = true
 
-		if migrantUUID != "" {
-			f.SetCellValue("Biométries", fmt.Sprintf("A%d", row), fmt.Sprintf("Migrant UUID: %s", migrantUUID))
+		if startDate != "" {
+			f.SetCellValue("Biométries", fmt.Sprintf("A%d", row), fmt.Sprintf("Date de début: %s", startDate))
 			row++
 		}
-		if typeBiometrie != "" {
-			f.SetCellValue("Biométries", fmt.Sprintf("A%d", row), fmt.Sprintf("Type de biométrie: %s", typeBiometrie))
+		if endDate != "" {
+			f.SetCellValue("Biométries", fmt.Sprintf("A%d", row), fmt.Sprintf("Date de fin: %s", endDate))
 			row++
 		}
-		if qualiteDonnee != "" {
-			f.SetCellValue("Biométries", fmt.Sprintf("A%d", row), fmt.Sprintf("Qualité des données: %s", qualiteDonnee))
-			row++
-		}
-		if verifie != "" {
-			f.SetCellValue("Biométries", fmt.Sprintf("A%d", row), fmt.Sprintf("Vérifié: %s", verifie))
-			row++
-		}
-		if chiffre != "" {
-			f.SetCellValue("Biométries", fmt.Sprintf("A%d", row), fmt.Sprintf("Chiffré: %s", chiffre))
-			row++
-		}
-		if dispositifCapture != "" {
-			f.SetCellValue("Biométries", fmt.Sprintf("A%d", row), fmt.Sprintf("Dispositif de capture: %s", dispositifCapture))
-			row++
-		}
-		row++ // Ligne vide
+		row++
 	}
 
 	if !filterApplied {
-		row = 2 // Pas de filtres, commencer plus haut
+		row = 2
 	}
 
 	// ===== EN-TÊTES DE COLONNES =====
 	headers := []string{
 		"UUID",
-		"Migrant UUID",
-		"Nom du migrant",
-		"Prénom du migrant",
+		"N° Identifiant Migrant",
 		"Type de biométrie",
 		"Index du doigt",
 		"Qualité des données",
@@ -932,36 +785,22 @@ func ExportBiometriesToExcel(c *fiber.Ctx) error {
 		f.SetCellValue("Biométries", cell, biometrie.UUID)
 		f.SetCellStyle("Biométries", cell, cell, dataStyle)
 
-		// Migrant UUID
+		// N° Identifiant Migrant
 		cell = fmt.Sprintf("B%d", dataRow)
-		f.SetCellValue("Biométries", cell, biometrie.MigrantUUID)
-		f.SetCellStyle("Biométries", cell, cell, dataStyle)
-
-		// Nom du migrant
-		cell = fmt.Sprintf("C%d", dataRow)
-		if biometrie.Migrant.Identite.UUID != "" {
-			f.SetCellValue("Biométries", cell, biometrie.Migrant.Identite.Nom)
-		} else {
-			f.SetCellValue("Biométries", cell, "N/A")
-		}
-		f.SetCellStyle("Biométries", cell, cell, dataStyle)
-
-		// Prénom du migrant
-		cell = fmt.Sprintf("D%d", dataRow)
-		if biometrie.Migrant.Identite.UUID != "" {
-			f.SetCellValue("Biométries", cell, biometrie.Migrant.Identite.Prenom)
+		if biometrie.Migrant.NumeroIdentifiant != "" {
+			f.SetCellValue("Biométries", cell, biometrie.Migrant.NumeroIdentifiant)
 		} else {
 			f.SetCellValue("Biométries", cell, "N/A")
 		}
 		f.SetCellStyle("Biométries", cell, cell, dataStyle)
 
 		// Type de biométrie
-		cell = fmt.Sprintf("E%d", dataRow)
+		cell = fmt.Sprintf("C%d", dataRow)
 		f.SetCellValue("Biométries", cell, biometrie.TypeBiometrie)
 		f.SetCellStyle("Biométries", cell, cell, dataStyle)
 
 		// Index du doigt
-		cell = fmt.Sprintf("F%d", dataRow)
+		cell = fmt.Sprintf("D%d", dataRow)
 		if biometrie.IndexDoigt != nil {
 			f.SetCellValue("Biométries", cell, *biometrie.IndexDoigt)
 		} else {
@@ -970,17 +809,17 @@ func ExportBiometriesToExcel(c *fiber.Ctx) error {
 		f.SetCellStyle("Biométries", cell, cell, numberStyle)
 
 		// Qualité des données
-		cell = fmt.Sprintf("G%d", dataRow)
+		cell = fmt.Sprintf("E%d", dataRow)
 		f.SetCellValue("Biométries", cell, biometrie.QualiteDonnee)
 		f.SetCellStyle("Biométries", cell, cell, dataStyle)
 
 		// Algorithme d'encodage
-		cell = fmt.Sprintf("H%d", dataRow)
+		cell = fmt.Sprintf("F%d", dataRow)
 		f.SetCellValue("Biométries", cell, biometrie.AlgorithmeEncodage)
 		f.SetCellStyle("Biométries", cell, cell, dataStyle)
 
 		// Taille fichier
-		cell = fmt.Sprintf("I%d", dataRow)
+		cell = fmt.Sprintf("G%d", dataRow)
 		if biometrie.TailleFichier > 0 {
 			f.SetCellValue("Biométries", cell, biometrie.TailleFichier)
 		} else {
@@ -989,27 +828,27 @@ func ExportBiometriesToExcel(c *fiber.Ctx) error {
 		f.SetCellStyle("Biométries", cell, cell, numberStyle)
 
 		// Date de capture
-		cell = fmt.Sprintf("J%d", dataRow)
+		cell = fmt.Sprintf("H%d", dataRow)
 		f.SetCellValue("Biométries", cell, biometrie.DateCapture.Format("02/01/2006 15:04"))
 		f.SetCellStyle("Biométries", cell, cell, dateStyle)
 
 		// Dispositif de capture
-		cell = fmt.Sprintf("K%d", dataRow)
+		cell = fmt.Sprintf("I%d", dataRow)
 		f.SetCellValue("Biométries", cell, biometrie.DisposifCapture)
 		f.SetCellStyle("Biométries", cell, cell, dataStyle)
 
 		// Résolution de capture
-		cell = fmt.Sprintf("L%d", dataRow)
+		cell = fmt.Sprintf("J%d", dataRow)
 		f.SetCellValue("Biométries", cell, biometrie.ResolutionCapture)
 		f.SetCellStyle("Biométries", cell, cell, dataStyle)
 
 		// Opérateur de capture
-		cell = fmt.Sprintf("M%d", dataRow)
+		cell = fmt.Sprintf("K%d", dataRow)
 		f.SetCellValue("Biométries", cell, biometrie.OperateurCapture)
 		f.SetCellStyle("Biométries", cell, cell, dataStyle)
 
 		// Chiffré
-		cell = fmt.Sprintf("N%d", dataRow)
+		cell = fmt.Sprintf("L%d", dataRow)
 		if biometrie.Chiffre {
 			f.SetCellValue("Biométries", cell, "OUI")
 		} else {
@@ -1018,7 +857,7 @@ func ExportBiometriesToExcel(c *fiber.Ctx) error {
 		f.SetCellStyle("Biométries", cell, cell, booleanStyle)
 
 		// Vérifié
-		cell = fmt.Sprintf("O%d", dataRow)
+		cell = fmt.Sprintf("M%d", dataRow)
 		if biometrie.Verifie {
 			f.SetCellValue("Biométries", cell, "OUI")
 		} else {
@@ -1027,7 +866,7 @@ func ExportBiometriesToExcel(c *fiber.Ctx) error {
 		f.SetCellStyle("Biométries", cell, cell, booleanStyle)
 
 		// Date de vérification
-		cell = fmt.Sprintf("P%d", dataRow)
+		cell = fmt.Sprintf("N%d", dataRow)
 		if biometrie.DateVerification != nil {
 			f.SetCellValue("Biométries", cell, biometrie.DateVerification.Format("02/01/2006 15:04"))
 		} else {
@@ -1036,7 +875,7 @@ func ExportBiometriesToExcel(c *fiber.Ctx) error {
 		f.SetCellStyle("Biométries", cell, cell, dateStyle)
 
 		// Score de confiance
-		cell = fmt.Sprintf("Q%d", dataRow)
+		cell = fmt.Sprintf("O%d", dataRow)
 		if biometrie.ScoreConfiance != nil {
 			f.SetCellValue("Biométries", cell, *biometrie.ScoreConfiance)
 		} else {
@@ -1045,17 +884,17 @@ func ExportBiometriesToExcel(c *fiber.Ctx) error {
 		f.SetCellStyle("Biométries", cell, cell, scoreStyle)
 
 		// Date de création
-		cell = fmt.Sprintf("R%d", dataRow)
+		cell = fmt.Sprintf("P%d", dataRow)
 		f.SetCellValue("Biométries", cell, biometrie.CreatedAt.Format("02/01/2006 15:04"))
 		f.SetCellStyle("Biométries", cell, cell, dateStyle)
 
 		// Date de MAJ
-		cell = fmt.Sprintf("S%d", dataRow)
+		cell = fmt.Sprintf("Q%d", dataRow)
 		f.SetCellValue("Biométries", cell, biometrie.UpdatedAt.Format("02/01/2006 15:04"))
 		f.SetCellStyle("Biométries", cell, cell, dateStyle)
 
 		// Données biométriques (tronquées pour sécurité)
-		cell = fmt.Sprintf("T%d", dataRow)
+		cell = fmt.Sprintf("R%d", dataRow)
 		if len(biometrie.DonneesBiometriques) > 50 {
 			f.SetCellValue("Biométries", cell, biometrie.DonneesBiometriques[:50]+"...")
 		} else {
@@ -1070,9 +909,7 @@ func ExportBiometriesToExcel(c *fiber.Ctx) error {
 	// ===== AJUSTEMENT DE LA LARGEUR DES COLONNES =====
 	columnWidths := []float64{
 		25, // UUID
-		25, // Migrant UUID
-		15, // Nom
-		15, // Prénom
+		20, // N° Identifiant Migrant
 		20, // Type biométrie
 		8,  // Index doigt
 		15, // Qualité
@@ -1091,7 +928,7 @@ func ExportBiometriesToExcel(c *fiber.Ctx) error {
 		30, // Données biométriques
 	}
 
-	columns := []string{"A", "B", "C", "D", "E", "F", "G", "H", "I", "J", "K", "L", "M", "N", "O", "P", "Q", "R", "S", "T"}
+	columns := []string{"A", "B", "C", "D", "E", "F", "G", "H", "I", "J", "K", "L", "M", "N", "O", "P", "Q", "R"}
 	for i, width := range columnWidths {
 		if i < len(columns) {
 			f.SetColWidth("Biométries", columns[i], columns[i], width)

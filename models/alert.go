@@ -13,7 +13,8 @@ type Alert struct {
 	UpdatedAt time.Time      `json:"updated_at"`
 	DeletedAt gorm.DeletedAt `gorm:"index" json:"deleted_at"`
 
-	MigrantUUID string `json:"migrant_uuid" gorm:"type:varchar(255);not null"`
+	MigrantUUID string  `json:"migrant_uuid" gorm:"type:varchar(255);not null"`
+	Migrant     Migrant `json:"migrant" gorm:"foreignKey:MigrantUUID;constraint:OnDelete:CASCADE"`
 
 	// Informations de l'alerte
 	TypeAlerte    string `json:"type_alerte" validate:"required,oneof=securite sante juridique administrative humanitaire"`
@@ -29,10 +30,8 @@ type Alert struct {
 
 	// Métadonnées de traitement
 	DateResolution        *time.Time `json:"date_resolution"`
-	CommentaireResolution string     `json:"commentaire_resolution" gorm:"type:text"`
-
-	// Relation avec Migrant
-	Migrant Migrant `json:"migrant" gorm:"constraint:OnDelete:CASCADE"`
+	CommentResolution string     `json:"comment_resolution" gorm:"type:text"`
+	
 }
 
 func (a *Alert) TableName() string {

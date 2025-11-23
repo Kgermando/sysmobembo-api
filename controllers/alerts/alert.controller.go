@@ -30,35 +30,19 @@ func GetPaginatedAlerts(c *fiber.Ctx) error {
 	}
 	offset := (page - 1) * limit
 
-	search := c.Query("search", "")
-	migrantUUID := c.Query("migrant_uuid", "")
-	statut := c.Query("statut", "")
-	gravite := c.Query("gravite", "")
+	search := c.Query("search", "") 
 
 	var alerts []models.Alert
 	var totalRecords int64
 
 	query := db.Model(&models.Alert{}).Preload("Migrant")
 
-	// Filtrer par migrant si spécifié
-	if migrantUUID != "" {
-		query = query.Where("migrant_uuid = ?", migrantUUID)
-	}
-
-	// Filtrer par statut
-	if statut != "" {
-		query = query.Where("statut = ?", statut)
-	}
-
-	// Filtrer par gravité
-	if gravite != "" {
-		query = query.Where("niveau_gravite = ?", gravite)
-	}
 
 	// Recherche textuelle
 	if search != "" {
-		query = query.Where("titre ILIKE ? OR description ILIKE ? OR type_alerte ILIKE ?",
-			"%"+search+"%", "%"+search+"%", "%"+search+"%")
+		query = query.Joins("LEFT JOIN migrants ON migrants.uuid = alerts.migrant_uuid").
+			Where("alerts.titre ILIKE ? OR alerts.description ILIKE ? OR alerts.type_alerte ILIKE ? OR alerts.action_requise ILIKE ? OR migrants.numero_identifiant ILIKE ?",
+				"%"+search+"%", "%"+search+"%", "%"+search+"%", "%"+search+"%", "%"+search+"%")
 	}
 
 	// Count total
@@ -161,30 +145,20 @@ func GetAlertsByMigrant(c *fiber.Ctx) error {
 	offset := (page - 1) * limit
 
 	// Paramètres de filtrage
-	search := c.Query("search", "")
-	statut := c.Query("statut", "")
-	gravite := c.Query("gravite", "")
+	search := c.Query("search", "") 
 
 	var alerts []models.Alert
 	var totalRecords int64
 
 	query := db.Model(&models.Alert{}).Where("migrant_uuid = ?", migrantUUID).Preload("Migrant")
 
-	// Filtrer par statut
-	if statut != "" {
-		query = query.Where("statut = ?", statut)
-	}
-
-	// Filtrer par gravité
-	if gravite != "" {
-		query = query.Where("niveau_gravite = ?", gravite)
-	}
-
 	// Recherche textuelle
 	if search != "" {
-		query = query.Where("titre ILIKE ? OR description ILIKE ? OR type_alerte ILIKE ?",
-			"%"+search+"%", "%"+search+"%", "%"+search+"%")
+		query = query.Joins("LEFT JOIN migrants ON migrants.uuid = alerts.migrant_uuid").
+			Where("alerts.titre ILIKE ? OR alerts.description ILIKE ? OR alerts.type_alerte ILIKE ? OR alerts.action_requise ILIKE ? OR migrants.numero_identifiant ILIKE ?",
+				"%"+search+"%", "%"+search+"%", "%"+search+"%", "%"+search+"%", "%"+search+"%")
 	}
+
 
 	// Count total
 	query.Count(&totalRecords)
@@ -230,39 +204,10 @@ func CreateAlert(c *fiber.Ctx) error {
 			"message": "Invalid request format",
 			"error":   err.Error(),
 		})
-	}
-
-	// Validation des champs requis
-	if alert.MigrantUUID == "" || alert.TypeAlerte == "" || alert.Titre == "" || alert.Description == "" {
-		return c.Status(400).JSON(fiber.Map{
-			"status":  "error",
-			"message": "MigrantUUID, TypeAlerte, Titre, and Description are required",
-			"data":    nil,
-		})
-	}
-
-	// Vérifier que le migrant existe
-	var migrant models.Migrant
-	if err := database.DB.Where("uuid = ?", alert.MigrantUUID).First(&migrant).Error; err != nil {
-		return c.Status(404).JSON(fiber.Map{
-			"status":  "error",
-			"message": "Migrant not found",
-			"data":    nil,
-		})
-	}
+	} 
 
 	// Générer l'UUID
 	alert.UUID = utils.GenerateUUID()
-
-	// Définir le statut par défaut si non spécifié
-	if alert.Statut == "" {
-		alert.Statut = "active"
-	}
-
-	// Validation des données
-	if err := utils.ValidateStruct(*alert); err != nil {
-		return c.Status(400).JSON(err)
-	}
 
 	if err := database.DB.Create(alert).Error; err != nil {
 		return c.Status(500).JSON(fiber.Map{
@@ -270,10 +215,7 @@ func CreateAlert(c *fiber.Ctx) error {
 			"message": "Failed to create alert",
 			"error":   err.Error(),
 		})
-	}
-
-	// Recharger avec les relations
-	database.DB.Preload("Migrant").First(alert, "uuid = ?", alert.UUID)
+	} 
 
 	return c.JSON(fiber.Map{
 		"status":  "success",
@@ -314,10 +256,7 @@ func UpdateAlert(c *fiber.Ctx) error {
 			"message": "Failed to update alert",
 			"error":   err.Error(),
 		})
-	}
-
-	// Recharger avec les relations
-	db.Preload("Migrant").First(&alert)
+	} 
 
 	return c.JSON(fiber.Map{
 		"status":  "success",
@@ -332,7 +271,7 @@ func ResolveAlert(c *fiber.Ctx) error {
 	db := database.DB
 
 	var resolutionData struct {
-		CommentaireResolution string `json:"commentaire_resolution"`
+		CommentResolution string `json:"comment_resolution"`
 	}
 
 	if err := c.BodyParser(&resolutionData); err != nil {
@@ -357,7 +296,7 @@ func ResolveAlert(c *fiber.Ctx) error {
 	updateData := map[string]interface{}{
 		"statut":                 "resolved",
 		"date_resolution":        &now,
-		"commentaire_resolution": resolutionData.CommentaireResolution,
+		"comment_resolution": resolutionData.CommentResolution,
 	}
 
 	if err := db.Model(&alert).Updates(updateData).Error; err != nil {
@@ -366,10 +305,7 @@ func ResolveAlert(c *fiber.Ctx) error {
 			"message": "Failed to resolve alert",
 			"error":   err.Error(),
 		})
-	}
-
-	// Recharger avec les relations
-	db.Preload("Migrant").First(&alert)
+	} 
 
 	return c.JSON(fiber.Map{
 		"status":  "success",
@@ -470,41 +406,20 @@ func ExportAlertsToExcel(c *fiber.Ctx) error {
 	db := database.DB
 
 	// Récupérer les paramètres de filtre
-	migrantUUID := c.Query("migrant_uuid", "")
-	typeAlerte := c.Query("type_alerte", "")
-	niveauGravite := c.Query("niveau_gravite", "")
-	statut := c.Query("statut", "")
-	search := c.Query("search", "")
-	dateDebut := c.Query("date_debut", "")
-	dateFin := c.Query("date_fin", "")
+	startDate := c.Query("start_date", "")
+	endDate := c.Query("end_date", "")
 
 	var alerts []models.Alert
 
 	query := db.Model(&models.Alert{}).Preload("Migrant")
 
-	// Appliquer les filtres
-	if migrantUUID != "" {
-		query = query.Where("migrant_uuid = ?", migrantUUID)
-	}
-	if typeAlerte != "" {
-		query = query.Where("type_alerte = ?", typeAlerte)
-	}
-	if niveauGravite != "" {
-		query = query.Where("niveau_gravite = ?", niveauGravite)
-	}
-	if statut != "" {
-		query = query.Where("statut = ?", statut)
-	}
-	if search != "" {
-		query = query.Where("titre ILIKE ? OR description ILIKE ? OR action_requise ILIKE ?",
-			"%"+search+"%", "%"+search+"%", "%"+search+"%")
-	}
-	if dateDebut != "" && dateFin != "" {
-		query = query.Where("created_at BETWEEN ? AND ?", dateDebut, dateFin)
-	} else if dateDebut != "" {
-		query = query.Where("created_at >= ?", dateDebut)
-	} else if dateFin != "" {
-		query = query.Where("created_at <= ?", dateFin)
+	// Appliquer les filtres de date
+	if startDate != "" && endDate != "" {
+		query = query.Where("created_at BETWEEN ? AND ?", startDate, endDate)
+	} else if startDate != "" {
+		query = query.Where("created_at >= ?", startDate)
+	} else if endDate != "" {
+		query = query.Where("created_at <= ?", endDate)
 	}
 
 	// Récupérer toutes les données
@@ -812,46 +727,26 @@ func ExportAlertsToExcel(c *fiber.Ctx) error {
 	currentTime := time.Now().Format("02/01/2006 15:04")
 	mainHeader := fmt.Sprintf("RAPPORT D'EXPORT DES ALERTES - %s", currentTime)
 	f.SetCellValue("Alertes", "A1", mainHeader)
-	f.MergeCell("Alertes", "A1", "P1")
-	f.SetCellStyle("Alertes", "A1", "P1", headerStyle)
+	f.MergeCell("Alertes", "A1", "M1")
+	f.SetCellStyle("Alertes", "A1", "M1", headerStyle)
 	f.SetRowHeight("Alertes", 1, 30)
 
 	// ===== INFORMATIONS DE FILTRE =====
 	row := 3
 	filterApplied := false
-	if migrantUUID != "" || typeAlerte != "" || niveauGravite != "" || statut != "" || search != "" || dateDebut != "" || dateFin != "" {
+	if startDate != "" || endDate != "" {
 		f.SetCellValue("Alertes", "A2", "Filtres appliqués:")
 		f.SetCellStyle("Alertes", "A2", "A2", columnHeaderStyle)
 		filterApplied = true
 
-		if migrantUUID != "" {
-			f.SetCellValue("Alertes", fmt.Sprintf("A%d", row), fmt.Sprintf("Migrant UUID: %s", migrantUUID))
-			row++
-		}
-		if typeAlerte != "" {
-			f.SetCellValue("Alertes", fmt.Sprintf("A%d", row), fmt.Sprintf("Type d'alerte: %s", typeAlerte))
-			row++
-		}
-		if niveauGravite != "" {
-			f.SetCellValue("Alertes", fmt.Sprintf("A%d", row), fmt.Sprintf("Niveau de gravité: %s", niveauGravite))
-			row++
-		}
-		if statut != "" {
-			f.SetCellValue("Alertes", fmt.Sprintf("A%d", row), fmt.Sprintf("Statut: %s", statut))
-			row++
-		}
-		if search != "" {
-			f.SetCellValue("Alertes", fmt.Sprintf("A%d", row), fmt.Sprintf("Recherche: %s", search))
-			row++
-		}
-		if dateDebut != "" || dateFin != "" {
+		if startDate != "" || endDate != "" {
 			dateFilter := "Période: "
-			if dateDebut != "" && dateFin != "" {
-				dateFilter += fmt.Sprintf("du %s au %s", dateDebut, dateFin)
-			} else if dateDebut != "" {
-				dateFilter += fmt.Sprintf("à partir du %s", dateDebut)
+			if startDate != "" && endDate != "" {
+				dateFilter += fmt.Sprintf("du %s au %s", startDate, endDate)
+			} else if startDate != "" {
+				dateFilter += fmt.Sprintf("à partir du %s", startDate)
 			} else {
-				dateFilter += fmt.Sprintf("jusqu'au %s", dateFin)
+				dateFilter += fmt.Sprintf("jusqu'au %s", endDate)
 			}
 			f.SetCellValue("Alertes", fmt.Sprintf("A%d", row), dateFilter)
 			row++
@@ -866,9 +761,7 @@ func ExportAlertsToExcel(c *fiber.Ctx) error {
 	// ===== EN-TÊTES DE COLONNES =====
 	headers := []string{
 		"UUID",
-		"Migrant UUID",
-		"Nom du migrant",
-		"Prénom du migrant",
+		"Numéro Identifiant Migrant",
 		"Type d'alerte",
 		"Niveau de gravité",
 		"Titre",
@@ -880,7 +773,6 @@ func ExportAlertsToExcel(c *fiber.Ctx) error {
 		"Date de résolution",
 		"Commentaire de résolution",
 		"Date de création",
-		"Date de MAJ",
 	}
 
 	// Écrire les en-têtes
@@ -900,36 +792,22 @@ func ExportAlertsToExcel(c *fiber.Ctx) error {
 		f.SetCellValue("Alertes", cell, alert.UUID)
 		f.SetCellStyle("Alertes", cell, cell, dataStyle)
 
-		// Migrant UUID
+		// Numéro Identifiant Migrant
 		cell = fmt.Sprintf("B%d", dataRow)
-		f.SetCellValue("Alertes", cell, alert.MigrantUUID)
-		f.SetCellStyle("Alertes", cell, cell, dataStyle)
-
-		// Nom du migrant
-		cell = fmt.Sprintf("C%d", dataRow)
-		if alert.Migrant.Identite.UUID != "" {
-			f.SetCellValue("Alertes", cell, alert.Migrant.Identite.Nom)
-		} else {
-			f.SetCellValue("Alertes", cell, "N/A")
-		}
-		f.SetCellStyle("Alertes", cell, cell, dataStyle)
-
-		// Prénom du migrant
-		cell = fmt.Sprintf("D%d", dataRow)
-		if alert.Migrant.Identite.UUID != "" {
-			f.SetCellValue("Alertes", cell, alert.Migrant.Identite.Prenom)
+		if alert.Migrant.NumeroIdentifiant != "" {
+			f.SetCellValue("Alertes", cell, alert.Migrant.NumeroIdentifiant)
 		} else {
 			f.SetCellValue("Alertes", cell, "N/A")
 		}
 		f.SetCellStyle("Alertes", cell, cell, dataStyle)
 
 		// Type d'alerte
-		cell = fmt.Sprintf("E%d", dataRow)
+		cell = fmt.Sprintf("C%d", dataRow)
 		f.SetCellValue("Alertes", cell, alert.TypeAlerte)
 		f.SetCellStyle("Alertes", cell, cell, dataStyle)
 
 		// Niveau de gravité avec couleur
-		cell = fmt.Sprintf("F%d", dataRow)
+		cell = fmt.Sprintf("D%d", dataRow)
 		f.SetCellValue("Alertes", cell, alert.NiveauGravite)
 		switch alert.NiveauGravite {
 		case "critical":
@@ -945,17 +823,17 @@ func ExportAlertsToExcel(c *fiber.Ctx) error {
 		}
 
 		// Titre
-		cell = fmt.Sprintf("G%d", dataRow)
+		cell = fmt.Sprintf("E%d", dataRow)
 		f.SetCellValue("Alertes", cell, alert.Titre)
 		f.SetCellStyle("Alertes", cell, cell, dataStyle)
 
 		// Description
-		cell = fmt.Sprintf("H%d", dataRow)
+		cell = fmt.Sprintf("F%d", dataRow)
 		f.SetCellValue("Alertes", cell, alert.Description)
 		f.SetCellStyle("Alertes", cell, cell, dataStyle)
 
 		// Statut avec couleur
-		cell = fmt.Sprintf("I%d", dataRow)
+		cell = fmt.Sprintf("G%d", dataRow)
 		f.SetCellValue("Alertes", cell, alert.Statut)
 		if alert.Statut == "active" {
 			f.SetCellStyle("Alertes", cell, cell, activeStatusStyle)
@@ -964,7 +842,7 @@ func ExportAlertsToExcel(c *fiber.Ctx) error {
 		}
 
 		// Date d'expiration
-		cell = fmt.Sprintf("J%d", dataRow)
+		cell = fmt.Sprintf("H%d", dataRow)
 		if alert.DateExpiration != nil {
 			f.SetCellValue("Alertes", cell, alert.DateExpiration.Format("02/01/2006"))
 		} else {
@@ -973,17 +851,17 @@ func ExportAlertsToExcel(c *fiber.Ctx) error {
 		f.SetCellStyle("Alertes", cell, cell, dateStyle)
 
 		// Action requise
-		cell = fmt.Sprintf("K%d", dataRow)
+		cell = fmt.Sprintf("I%d", dataRow)
 		f.SetCellValue("Alertes", cell, alert.ActionRequise)
 		f.SetCellStyle("Alertes", cell, cell, dataStyle)
 
 		// Personne responsable
-		cell = fmt.Sprintf("L%d", dataRow)
+		cell = fmt.Sprintf("J%d", dataRow)
 		f.SetCellValue("Alertes", cell, alert.PersonneResponsable)
 		f.SetCellStyle("Alertes", cell, cell, dataStyle)
 
 		// Date de résolution
-		cell = fmt.Sprintf("M%d", dataRow)
+		cell = fmt.Sprintf("K%d", dataRow)
 		if alert.DateResolution != nil {
 			f.SetCellValue("Alertes", cell, alert.DateResolution.Format("02/01/2006 15:04"))
 		} else {
@@ -992,18 +870,13 @@ func ExportAlertsToExcel(c *fiber.Ctx) error {
 		f.SetCellStyle("Alertes", cell, cell, dateStyle)
 
 		// Commentaire de résolution
-		cell = fmt.Sprintf("N%d", dataRow)
-		f.SetCellValue("Alertes", cell, alert.CommentaireResolution)
+		cell = fmt.Sprintf("L%d", dataRow)
+		f.SetCellValue("Alertes", cell, alert.CommentResolution)
 		f.SetCellStyle("Alertes", cell, cell, dataStyle)
 
 		// Date de création
-		cell = fmt.Sprintf("O%d", dataRow)
+		cell = fmt.Sprintf("M%d", dataRow)
 		f.SetCellValue("Alertes", cell, alert.CreatedAt.Format("02/01/2006 15:04"))
-		f.SetCellStyle("Alertes", cell, cell, dateStyle)
-
-		// Date de MAJ
-		cell = fmt.Sprintf("P%d", dataRow)
-		f.SetCellValue("Alertes", cell, alert.UpdatedAt.Format("02/01/2006 15:04"))
 		f.SetCellStyle("Alertes", cell, cell, dateStyle)
 
 		// Définir la hauteur de ligne
@@ -1013,9 +886,7 @@ func ExportAlertsToExcel(c *fiber.Ctx) error {
 	// ===== AJUSTEMENT DE LA LARGEUR DES COLONNES =====
 	columnWidths := []float64{
 		25, // UUID
-		25, // Migrant UUID
-		15, // Nom
-		15, // Prénom
+		25, // Numéro Identifiant Migrant
 		15, // Type alerte
 		15, // Niveau gravité
 		30, // Titre
@@ -1027,10 +898,9 @@ func ExportAlertsToExcel(c *fiber.Ctx) error {
 		18, // Date résolution
 		40, // Commentaire résolution
 		18, // Date création
-		18, // Date MAJ
 	}
 
-	columns := []string{"A", "B", "C", "D", "E", "F", "G", "H", "I", "J", "K", "L", "M", "N", "O", "P"}
+	columns := []string{"A", "B", "C", "D", "E", "F", "G", "H", "I", "J", "K", "L", "M"}
 	for i, width := range columnWidths {
 		if i < len(columns) {
 			f.SetColWidth("Alertes", columns[i], columns[i], width)

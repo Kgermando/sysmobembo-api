@@ -131,6 +131,14 @@ type AlertesTempsReelResponse struct {
 	DateMiseAJour  time.Time            `json:"date_mise_a_jour"`
 }
 
+// Structure pour le pie chart des motifs de déplacement
+type MotifPieChartResponse struct {
+	Data           []ChartDataPoint `json:"data"`
+	Total          int64            `json:"total"`
+	DateMiseAJour  time.Time        `json:"date_mise_a_jour"`
+	PeriodeAnalyse string           `json:"periode_analyse"`
+}
+
 // =================== ENDPOINTS PRINCIPAUX ===================
 
 // GetIndicateursGeneraux - Endpoint principal pour récupérer tous les indicateurs
@@ -207,6 +215,36 @@ func GetRepartitionGeographique(c *fiber.Ctx) error {
 		RepartitionProvinces: repartition,
 		DateMiseAJour:        time.Now(),
 		PeriodeAnalyse:       strconv.Itoa(periodeInt) + " derniers mois",
+	}
+
+	return c.Status(fiber.StatusOK).JSON(response)
+}
+
+// GetMotifsPieChart - Endpoint pour récupérer les données du pie chart des motifs de déplacement
+// GET /api/overview/motifs-pie?periode=12&province=
+func GetMotifsPieChart(c *fiber.Ctx) error {
+	periode := c.Query("periode", "12")
+	province := c.Query("province", "")
+
+	periodeInt, err := strconv.Atoi(periode)
+	if err != nil {
+		periodeInt = 12
+	}
+
+	// Récupérer les données du pie chart
+	pieData := getMotifsPieChartData(periodeInt, province)
+
+	// Calculer le total
+	var total int64
+	for _, data := range pieData {
+		total += int64(data.Value)
+	}
+
+	response := MotifPieChartResponse{
+		Data:           pieData,
+		Total:          total,
+		DateMiseAJour:  time.Now(),
+		PeriodeAnalyse: strconv.Itoa(periodeInt) + " derniers mois",
 	}
 
 	return c.Status(fiber.StatusOK).JSON(response)

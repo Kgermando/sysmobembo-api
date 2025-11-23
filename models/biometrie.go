@@ -13,7 +13,8 @@ type Biometrie struct {
 	UpdatedAt time.Time      `json:"updated_at"`
 	DeletedAt gorm.DeletedAt `gorm:"index" json:"deleted_at"`
 
-	MigrantUUID string `json:"migrant_uuid" gorm:"type:varchar(255);not null"`
+	MigrantUUID string  `json:"migrant_uuid" gorm:"type:varchar(255);not null"`
+	Migrant     Migrant `json:"migrant" gorm:"foreignKey:MigrantUUID;constraint:OnDelete:CASCADE"`
 
 	// Types de données biométriques
 	TypeBiometrie string `json:"type_biometrie" validate:"required,oneof=empreinte_digitale reconnaissance_faciale iris scan_retine signature_numerique"`
@@ -39,9 +40,7 @@ type Biometrie struct {
 	Verifie          bool       `json:"verifie" gorm:"default:false"`
 	DateVerification *time.Time `json:"date_verification"`
 	ScoreConfiance   *float64   `json:"score_confiance"` // 0-1
-
-	// Relation avec Migrant
-	Migrant Migrant `json:"migrant" gorm:"constraint:OnDelete:CASCADE"`
+ 
 }
 
 func (b *Biometrie) TableName() string {

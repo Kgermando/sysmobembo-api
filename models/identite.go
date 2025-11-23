@@ -29,6 +29,8 @@ type Identite struct {
 	AutoriteEmetteur string `json:"autorite_emetteur" gorm:"not null;default:''" validate:"required"`
 
 	NumeroPasseport string `json:"numero_passeport" gorm:"unique;not null;default:''" validate:"required"`
+
+	Migrants []Migrant `json:"migrants" gorm:"foreignKey:IdentiteUUID;constraint:OnDelete:CASCADE"`
 }
 
 func (i *Identite) TableName() string {

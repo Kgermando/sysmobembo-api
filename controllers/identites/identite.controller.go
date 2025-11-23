@@ -2,6 +2,7 @@ package identites
 
 import (
 	"fmt"
+	"strconv"
 
 	"github.com/kgermando/sysmobembo-api/database"
 	"github.com/kgermando/sysmobembo-api/models"
@@ -11,68 +12,154 @@ import (
 	"github.com/xuri/excelize/v2"
 )
 
-// GetAllIdentites récupère toutes les identités avec pagination et filtres
-func GetAllIdentites(c *fiber.Ctx) error {
+// GetPaginatedIdentites - Récupérer toutes les identités avec pagination et recherche
+func GetPaginatedIdentites(c *fiber.Ctx) error {
 	db := database.DB
-	page := c.QueryInt("page", 1)
-	limit := c.QueryInt("limit", 10)
+
+	// Parse query parameters for pagination
+	page, err := strconv.Atoi(c.Query("page", "1"))
+	if err != nil || page <= 0 {
+		page = 1
+	}
+	limit, err := strconv.Atoi(c.Query("limit", "15"))
+	if err != nil || limit <= 0 {
+		limit = 15
+	}
 	offset := (page - 1) * limit
 
-	// Filtres
-	nom := c.Query("nom", "")
-	postnom := c.Query("postnom", "")
-	prenom := c.Query("prenom", "")
-	nationalite := c.Query("nationalite", "")
-	sexe := c.Query("sexe", "")
-	numeroPasseport := c.Query("numero_passeport", "")
+	// Parse search parameter
+	search := c.Query("search", "")
 
 	var identites []models.Identite
-	var total int64
+	var totalRecords int64
 
+	// Build query with filters
 	query := db.Model(&models.Identite{})
 
-	// Appliquer les filtres
-	if nom != "" {
-		query = query.Where("nom ILIKE ?", "%"+nom+"%")
-	}
-	if postnom != "" {
-		query = query.Where("postnom ILIKE ?", "%"+postnom+"%")
-	}
-	if prenom != "" {
-		query = query.Where("prenom ILIKE ?", "%"+prenom+"%")
-	}
-	if nationalite != "" {
-		query = query.Where("nationalite ILIKE ?", "%"+nationalite+"%")
-	}
-	if sexe != "" {
-		query = query.Where("sexe = ?", sexe)
-	}
-	if numeroPasseport != "" {
-		query = query.Where("numero_passeport ILIKE ?", "%"+numeroPasseport+"%")
+	// Search filter
+	if search != "" {
+		query = query.Where("nom ILIKE ? OR postnom ILIKE ? OR prenom ILIKE ? OR numero_passeport ILIKE ? OR nationalite ILIKE ? OR lieu_naissance ILIKE ? OR sexe ILIKE ?",
+			"%"+search+"%", "%"+search+"%", "%"+search+"%", "%"+search+"%", "%"+search+"%", "%"+search+"%", "%"+search+"%")
 	}
 
-	// Compter le total
-	query.Count(&total)
+	// Count total records with filters applied
+	query.Count(&totalRecords)
 
-	// Récupérer les identités avec pagination
-	err := query.Order("created_at DESC").Limit(limit).Offset(offset).Find(&identites).Error
+	// Execute query with pagination
+	err = query.
+		Offset(offset).
+		Limit(limit).
+		Order("updated_at DESC").
+		Find(&identites).Error
+
 	if err != nil {
 		return c.Status(500).JSON(fiber.Map{
 			"status":  "error",
-			"message": "Cannot fetch identites",
+			"message": "Failed to fetch identites",
 			"error":   err.Error(),
 		})
 	}
 
+	// Calculate total pages
+	totalPages := int((totalRecords + int64(limit) - 1) / int64(limit))
+
+	// Prepare pagination metadata
+	pagination := map[string]interface{}{
+		"total_records": totalRecords,
+		"total_pages":   totalPages,
+		"current_page":  page,
+		"page_size":     limit,
+	}
+
+	// Return response
 	return c.JSON(fiber.Map{
-		"status": "success",
-		"data": fiber.Map{
-			"identites":   identites,
-			"total":       total,
-			"page":        page,
-			"limit":       limit,
-			"total_pages": (total + int64(limit) - 1) / int64(limit),
-		},
+		"status":     "success",
+		"message":    "Identites retrieved successfully",
+		"data":       identites,
+		"pagination": pagination,
+	})
+}
+
+// GetMigrantsByIdentiteUUID - Récupérer tous les migrants selon un identite_uuid avec pagination et recherche
+func GetMigrantsByIdentiteUUID(c *fiber.Ctx) error {
+	db := database.DB
+
+	// Get identite_uuid from query parameter
+	identiteUUID := c.Query("identite_uuid", "")
+	if identiteUUID == "" {
+		return c.Status(400).JSON(fiber.Map{
+			"status":  "error",
+			"message": "identite_uuid query parameter is required",
+		})
+	}
+
+	// Parse query parameters for pagination
+	page, err := strconv.Atoi(c.Query("page", "1"))
+	if err != nil || page <= 0 {
+		page = 1
+	}
+	limit, err := strconv.Atoi(c.Query("limit", "15"))
+	if err != nil || limit <= 0 {
+		limit = 15
+	}
+	offset := (page - 1) * limit
+
+	// Parse search parameter
+	search := c.Query("search", "")
+
+	var migrants []models.Migrant
+	var totalRecords int64
+
+	// Build query with filters
+	query := db.Model(&models.Migrant{}).Where("migrants.identite_uuid = ?", identiteUUID)
+
+	// Search filter
+	if search != "" {
+		query = query.Joins("LEFT JOIN identites ON migrants.identite_uuid = identites.uuid").
+			Where("migrants.identite_uuid = ? AND (identites.nom ILIKE ? OR identites.postnom ILIKE ? OR identites.prenom ILIKE ? OR migrants.numero_identifiant ILIKE ? OR identites.nationalite ILIKE ? OR identites.numero_passeport ILIKE ? OR migrants.adresse_actuelle ILIKE ? OR migrants.ville_actuelle ILIKE ? OR migrants.pays_actuel ILIKE ? OR migrants.situation_matrimoniale ILIKE ?)",
+				identiteUUID, "%"+search+"%", "%"+search+"%", "%"+search+"%", "%"+search+"%", "%"+search+"%", "%"+search+"%", "%"+search+"%", "%"+search+"%", "%"+search+"%", "%"+search+"%")
+	}
+
+	// Count total records with filters applied
+	query.Count(&totalRecords)
+
+	// Execute query with pagination
+	err = query.
+		Preload("Identite").
+		Preload("MotifDeplacements").
+		Preload("Alertes").
+		Preload("Biometries").
+		Preload("Geolocalisations").
+		Offset(offset).
+		Limit(limit).
+		Order("migrants.updated_at DESC").
+		Find(&migrants).Error
+
+	if err != nil {
+		return c.Status(500).JSON(fiber.Map{
+			"status":  "error",
+			"message": "Failed to fetch migrants",
+			"error":   err.Error(),
+		})
+	}
+
+	// Calculate total pages
+	totalPages := int((totalRecords + int64(limit) - 1) / int64(limit))
+
+	// Prepare pagination metadata
+	pagination := map[string]interface{}{
+		"total_records": totalRecords,
+		"total_pages":   totalPages,
+		"current_page":  page,
+		"page_size":     limit,
+	}
+
+	// Return response
+	return c.JSON(fiber.Map{
+		"status":     "success",
+		"message":    "Migrants retrieved successfully for identite_uuid: " + identiteUUID,
+		"data":       migrants,
+		"pagination": pagination,
 	})
 }
 

@@ -5,7 +5,6 @@ import (
 	"github.com/kgermando/sysmobembo-api/controllers/alerts"
 	"github.com/kgermando/sysmobembo-api/controllers/auth"
 	"github.com/kgermando/sysmobembo-api/controllers/biometrics"
-	"github.com/kgermando/sysmobembo-api/controllers/dashboard"
 	"github.com/kgermando/sysmobembo-api/controllers/geolocation"
 	"github.com/kgermando/sysmobembo-api/controllers/identites"
 	"github.com/kgermando/sysmobembo-api/controllers/migrants"
@@ -65,9 +64,7 @@ func Setup(app *fiber.App) {
 	bio.Get("/all", biometrics.GetAllBiometries)
 	bio.Get("/get/:uuid", biometrics.GetBiometrie)
 	bio.Get("/migrant/:uuid", biometrics.GetBiometriesByMigrant)
-	bio.Get("/verified", biometrics.GetVerifiedBiometries)
 	bio.Post("/create", biometrics.CreateBiometrie)
-	bio.Post("/verify/:uuid", biometrics.VerifyBiometrie)
 	bio.Put("/update/:uuid", biometrics.UpdateBiometrie)
 	bio.Delete("/delete/:uuid", biometrics.DeleteBiometrie)
 	bio.Get("/stats", biometrics.GetBiometricsStats)
@@ -82,7 +79,6 @@ func Setup(app *fiber.App) {
 	geo.Post("/create", geolocation.CreateGeolocalisation)
 	geo.Put("/update/:uuid", geolocation.UpdateGeolocalisation)
 	geo.Delete("/delete/:uuid", geolocation.DeleteGeolocalisation)
-	geo.Get("/stats", geolocation.GetGeolocalisationsStats)
 	geo.Get("/export/excel", geolocation.ExportGeolocalisationsToExcel)
 
 	// Migrants controller
@@ -98,7 +94,8 @@ func Setup(app *fiber.App) {
 
 	// Identites controller
 	identitesGroup := api.Group("/identites")
-	identitesGroup.Get("/paginate", identites.GetAllIdentites)
+	identitesGroup.Get("/paginate", identites.GetPaginatedIdentites)
+	identitesGroup.Get("/migrants/by-identite", identites.GetMigrantsByIdentiteUUID)
 	identitesGroup.Get("/:uuid", identites.GetIdentite)
 	identitesGroup.Post("/create", identites.CreateIdentite)
 	identitesGroup.Put("/update/:uuid", identites.UpdateIdentite)
@@ -112,7 +109,6 @@ func Setup(app *fiber.App) {
 	motif.Get("/paginate", motifDeplacement.GetPaginatedMotifDeplacements)
 	motif.Get("/all", motifDeplacement.GetAllMotifDeplacements)
 	motif.Get("/get/:uuid", motifDeplacement.GetMotifDeplacement)
-	motif.Get("/migrant/:uuid", motifDeplacement.GetMotifsByMigrant)
 	motif.Post("/create", motifDeplacement.CreateMotifDeplacement)
 	motif.Put("/update/:uuid", motifDeplacement.UpdateMotifDeplacement)
 	motif.Delete("/delete/:uuid", motifDeplacement.DeleteMotifDeplacement)
@@ -121,49 +117,50 @@ func Setup(app *fiber.App) {
 
 	// Dashboard GIS System controller
 	dash := api.Group("/dashboard")
-	gis := dash.Group("/gis")
-	gis.Get("/statistics", dashboard.GetGISStatistics)
-	gis.Get("/heatmap", dashboard.GetMigrationHeatmap)
-	gis.Get("/live-data", dashboard.GetLiveMigrationData)
-	gis.Get("/predictive-insights", dashboard.GetPredictiveInsights)
-	gis.Get("/interactive-map", dashboard.GetInteractiveMap)
+	// gis := dash.Group("/gis")
+	// gis.Get("/statistics", dashboard.GetGISStatistics)
+	// gis.Get("/heatmap", dashboard.GetMigrationHeatmap)
+	// gis.Get("/live-data", dashboard.GetLiveMigrationData)
+	// gis.Get("/predictive-insights", dashboard.GetPredictiveInsights)
+	// gis.Get("/interactive-map", dashboard.GetInteractiveMap)
 
-	// Dashboard Advanced Predictive Analysis controller (nouvelles fonctions)
-	predic := dash.Group("/predictive")
-	predic.Get("/stats", dashboard.GetAdvancedMigrationStats)
-	predic.Get("/predictive", dashboard.GetAdvancedPredictiveAnalysis)
-	predic.Get("/trends", dashboard.GetAdvancedMigrationTrends)
-	predic.Get("/risk", dashboard.GetAdvancedRiskAnalysis)
-	predic.Get("/models-performance", dashboard.GetPredictiveModelsPerformance)
+	// // Dashboard Advanced Predictive Analysis controller (nouvelles fonctions)
+	// predic := dash.Group("/predictive")
+	// predic.Get("/stats", dashboard.GetAdvancedMigrationStats)
+	// predic.Get("/predictive", dashboard.GetAdvancedPredictiveAnalysis)
+	// predic.Get("/trends", dashboard.GetAdvancedMigrationTrends)
+	// predic.Get("/risk", dashboard.GetAdvancedRiskAnalysis)
+	// predic.Get("/models-performance", dashboard.GetPredictiveModelsPerformance)
 
-	// Nouvelles routes pour les endpoints manquants
-	predic.Get("/migration-flow", dashboard.GetMigrationFlow)
-	predic.Get("/risk-analysis", dashboard.GetAdvancedRiskAnalysisData)
-	predic.Get("/demographic", dashboard.GetDemographicAnalysis)
-	predic.Get("/movement-patterns", dashboard.GetMovementPatterns)
+	// // Nouvelles routes pour les endpoints manquants
+	// predic.Get("/migration-flow", dashboard.GetMigrationFlow)
+	// predic.Get("/risk-analysis", dashboard.GetAdvancedRiskAnalysisData)
+	// predic.Get("/demographic", dashboard.GetDemographicAnalysis)
+	// predic.Get("/movement-patterns", dashboard.GetMovementPatterns)
 
-	// Dashboard Alertes - Système de monitoring avancé
-	alertsDash := dash.Group("/alerts")
-	alertsDash.Get("/realtime", dashboard.GetRealtimeDashboard)
-	alertsDash.Get("/date-range", dashboard.GetAlertsByDateRange)
-	alertsDash.Get("/heatmap", dashboard.GetAlertsHeatmap)
-	alertsDash.Get("/notifications", dashboard.GetAlertsNotifications)
-	alertsDash.Put("/bulk-update", dashboard.BulkUpdateAlerts)
-	alertsDash.Get("/export", dashboard.GetAlertsExport)
+	// // Dashboard Alertes - Système de monitoring avancé
+	// alertsDash := dash.Group("/alerts")
+	// alertsDash.Get("/realtime", dashboard.GetRealtimeDashboard)
+	// alertsDash.Get("/date-range", dashboard.GetAlertsByDateRange)
+	// alertsDash.Get("/heatmap", dashboard.GetAlertsHeatmap)
+	// alertsDash.Get("/notifications", dashboard.GetAlertsNotifications)
+	// alertsDash.Put("/bulk-update", dashboard.BulkUpdateAlerts)
+	// alertsDash.Get("/export", dashboard.GetAlertsExport)
 
-	// Dashboard Analyse des Déplacements - Indicateurs RDC
-	deplacementDash := dash.Group("/deplacement")
-	deplacementDash.Get("/analyse", dashboard.AnalyseDeplacement)
-	deplacementDash.Get("/province/:province", dashboard.AnalyseDeplacementParProvince)
-	deplacementDash.Get("/tendances", dashboard.TendancesEvolution)
-	deplacementDash.Get("/alertes-temps-reel", dashboard.AlertesTempsReel)
-	deplacementDash.Get("/repartition-geo", dashboard.RepartitionGeographiqueDetaillee)
-	deplacementDash.Get("/causes", dashboard.AnalyseCausesDetaillees)
+	// // Dashboard Analyse des Déplacements - Indicateurs RDC
+	// deplacementDash := dash.Group("/deplacement")
+	// deplacementDash.Get("/analyse", dashboard.AnalyseDeplacement)
+	// deplacementDash.Get("/province/:province", dashboard.AnalyseDeplacementParProvince)
+	// deplacementDash.Get("/tendances", dashboard.TendancesEvolution)
+	// deplacementDash.Get("/alertes-temps-reel", dashboard.AlertesTempsReel)
+	// deplacementDash.Get("/repartition-geo", dashboard.RepartitionGeographiqueDetaillee)
+	// deplacementDash.Get("/causes", dashboard.AnalyseCausesDetaillees)
 
 	// Dashboard Overview - APIs spécifiques pour le composant Angular overview
 	overviewDash := dash.Group("/overview")
 	overviewDash.Get("/indicateurs", overview.GetIndicateursGeneraux)
 	overviewDash.Get("/alertes", overview.GetAlertesTempsReel)
 	overviewDash.Get("/repartition", overview.GetRepartitionGeographique)
+	overviewDash.Get("/motifs-pie", overview.GetMotifsPieChart)
 
 }

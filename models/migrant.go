@@ -13,15 +13,17 @@ type Migrant struct {
 	UpdatedAt time.Time      `json:"updated_at"`
 	DeletedAt gorm.DeletedAt `gorm:"index" json:"deleted_at"`
 
-	NumeroIdentifiant string `json:"numero_identifiant" gorm:"unique;not null" validate:"required"`
-
 	// Relation avec Identite
 	IdentiteUUID string   `json:"identite_uuid" gorm:"not null" validate:"required"`
 	Identite     Identite `json:"identite" gorm:"foreignKey:IdentiteUUID;constraint:OnDelete:CASCADE"`
 
+	// Informations d'identification du migrant
+	NumeroIdentifiant string `json:"numero_identifiant" gorm:"unique;not null" validate:"required"`
+
 	// Informations de contact
 	Telephone       string `json:"telephone"`
 	Email           string `json:"email" gorm:"unique"`
+	
 	AdresseActuelle string `json:"adresse_actuelle"`
 	VilleActuelle   string `json:"ville_actuelle"`
 	PaysActuel      string `json:"pays_actuel"`
@@ -44,8 +46,6 @@ type Migrant struct {
 	Biometries        []Biometrie        `json:"biometries" gorm:"foreignKey:MigrantUUID;constraint:OnDelete:CASCADE"`
 	Geolocalisations  []Geolocalisation  `json:"geolocalisations" gorm:"foreignKey:MigrantUUID;constraint:OnDelete:CASCADE"`
 
-	// Métadonnées
-	Actif bool `json:"actif" gorm:"default:true"`
 }
 
 func (m *Migrant) TableName() string {
