@@ -1,7 +1,10 @@
 package identites
 
 import (
+	"encoding/base64"
 	"fmt"
+	"os"
+	"path/filepath"
 	"strconv"
 
 	"github.com/kgermando/sysmobembo-api/database"
@@ -584,6 +587,90 @@ func GetIdentiteStatistics(c *fiber.Ctx) error {
 			"par_nationalite": nationaliteStats,
 			"avec_passeport":  withPassport,
 			"sans_passeport":  withoutPassport,
+		},
+	})
+}
+
+// ScanDocument - Scanner un document et retourner le fichier au frontend
+func ScanDocument(c *fiber.Ctx) error {
+	// Initialiser le service de scan
+	scannerService := utils.NewScannerService("./scans")
+
+	// Déclencher le scan
+	scannedFilePath, err := scannerService.ScanDocument()
+	if err != nil {
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
+			"status":  "error",
+			"message": fmt.Sprintf("Erreur lors du scan: %v", err),
+		})
+	}
+
+	// Lire le fichier scanné
+	fileData, err := os.ReadFile(scannedFilePath)
+	if err != nil {
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
+			"status":  "error",
+			"message": fmt.Sprintf("Erreur lors de la lecture du fichier: %v", err),
+		})
+	}
+
+	// Encoder le fichier en base64 pour le frontend
+	base64Image := base64.StdEncoding.EncodeToString(fileData)
+
+	// Retourner l'image en base64 pour que le frontend puisse l'afficher et faire l'OCR
+	return c.Status(fiber.StatusOK).JSON(fiber.Map{
+		"status":  "success",
+		"message": "Document scanné avec succès",
+		"data": fiber.Map{
+			"file_path":    scannedFilePath,
+			"file_name":    filepath.Base(scannedFilePath),
+			"image_base64": base64Image,
+			"mime_type":    "image/jpeg",
+		},
+	})
+}
+
+// GetScannedFile - Récupérer un fichier scanné spécifique
+func GetScannedFile(c *fiber.Ctx) error {
+	fileName := c.Params("filename")
+	if fileName == "" {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+			"status":  "error",
+			"message": "Nom de fichier requis",
+		})
+	}
+
+	filePath := filepath.Join("./scans", fileName)
+
+	// Vérifier si le fichier existe
+	if _, err := os.Stat(filePath); os.IsNotExist(err) {
+		return c.Status(fiber.StatusNotFound).JSON(fiber.Map{
+			"status":  "error",
+			"message": "Fichier non trouvé",
+		})
+	}
+
+	// Servir le fichier
+	return c.SendFile(filePath)
+}
+
+// ListAvailableScanners - Lister les scanners disponibles
+func ListAvailableScanners(c *fiber.Ctx) error {
+	scannerService := utils.NewScannerService("./scans")
+
+	scanners, err := scannerService.ListScanners()
+	if err != nil {
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
+			"status":  "error",
+			"message": fmt.Sprintf("Erreur lors de la récupération des scanners: %v", err),
+		})
+	}
+
+	return c.Status(fiber.StatusOK).JSON(fiber.Map{
+		"status": "success",
+		"data": fiber.Map{
+			"scanners": scanners,
+			"count":    len(scanners),
 		},
 	})
 }

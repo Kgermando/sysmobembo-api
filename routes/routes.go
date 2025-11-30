@@ -45,7 +45,7 @@ func Setup(app *fiber.App) {
 	u.Delete("/delete/:uuid", users.DeleteUser)
 	u.Get("/export/excel", users.ExportUsersToExcel)
 
-	// Alerts controller 
+	// Alerts controller
 	alertsGroup := api.Group("/alerts")
 	alertsGroup.Get("/paginate", alerts.GetPaginatedAlerts)
 	alertsGroup.Get("/all", alerts.GetAllAlerts)
@@ -75,7 +75,7 @@ func Setup(app *fiber.App) {
 	geo.Get("/paginate", geolocation.GetPaginatedGeolocalisations)
 	geo.Get("/all", geolocation.GetAllGeolocalisations)
 	geo.Get("/coordinates", geolocation.GetCoordinatesList)
-	geo.Get("/get/:uuid", geolocation.GetGeolocalisation) 
+	geo.Get("/get/:uuid", geolocation.GetGeolocalisation)
 	geo.Post("/create", geolocation.CreateGeolocalisation)
 	geo.Put("/update/:uuid", geolocation.UpdateGeolocalisation)
 	geo.Delete("/delete/:uuid", geolocation.DeleteGeolocalisation)
@@ -99,9 +99,14 @@ func Setup(app *fiber.App) {
 	identitesGroup.Get("/:uuid", identites.GetIdentite)
 	identitesGroup.Post("/create", identites.CreateIdentite)
 	identitesGroup.Put("/update/:uuid", identites.UpdateIdentite)
-	identitesGroup.Delete("/delete/:uuid", identites.DeleteIdentite) 
+	identitesGroup.Delete("/delete/:uuid", identites.DeleteIdentite)
 	identitesGroup.Get("/export/excel", identites.ExportIdentitesToExcel)
 	identitesGroup.Get("/statistics", identites.GetIdentiteStatistics)
+
+	// Routes Scanner
+	identitesGroup.Post("/scan", identites.ScanDocument)
+	identitesGroup.Get("/scanned-file/:filename", identites.GetScannedFile)
+	identitesGroup.Get("/scanners/list", identites.ListAvailableScanners)
 
 	// Motif Deplacement controller
 	motif := api.Group("/motif-deplacements")
@@ -116,45 +121,7 @@ func Setup(app *fiber.App) {
 
 	// Dashboard GIS System controller
 	dash := api.Group("/dashboard")
-	// gis := dash.Group("/gis")
-	// gis.Get("/statistics", dashboard.GetGISStatistics)
-	// gis.Get("/heatmap", dashboard.GetMigrationHeatmap)
-	// gis.Get("/live-data", dashboard.GetLiveMigrationData)
-	// gis.Get("/predictive-insights", dashboard.GetPredictiveInsights)
-	// gis.Get("/interactive-map", dashboard.GetInteractiveMap)
-
-	// // Dashboard Advanced Predictive Analysis controller (nouvelles fonctions)
-	// predic := dash.Group("/predictive")
-	// predic.Get("/stats", dashboard.GetAdvancedMigrationStats)
-	// predic.Get("/predictive", dashboard.GetAdvancedPredictiveAnalysis)
-	// predic.Get("/trends", dashboard.GetAdvancedMigrationTrends)
-	// predic.Get("/risk", dashboard.GetAdvancedRiskAnalysis)
-	// predic.Get("/models-performance", dashboard.GetPredictiveModelsPerformance)
-
-	// // Nouvelles routes pour les endpoints manquants
-	// predic.Get("/migration-flow", dashboard.GetMigrationFlow)
-	// predic.Get("/risk-analysis", dashboard.GetAdvancedRiskAnalysisData)
-	// predic.Get("/demographic", dashboard.GetDemographicAnalysis)
-	// predic.Get("/movement-patterns", dashboard.GetMovementPatterns)
-
-	// // Dashboard Alertes - Système de monitoring avancé
-	// alertsDash := dash.Group("/alerts")
-	// alertsDash.Get("/realtime", dashboard.GetRealtimeDashboard)
-	// alertsDash.Get("/date-range", dashboard.GetAlertsByDateRange)
-	// alertsDash.Get("/heatmap", dashboard.GetAlertsHeatmap)
-	// alertsDash.Get("/notifications", dashboard.GetAlertsNotifications)
-	// alertsDash.Put("/bulk-update", dashboard.BulkUpdateAlerts)
-	// alertsDash.Get("/export", dashboard.GetAlertsExport)
-
-	// // Dashboard Analyse des Déplacements - Indicateurs RDC
-	// deplacementDash := dash.Group("/deplacement")
-	// deplacementDash.Get("/analyse", dashboard.AnalyseDeplacement)
-	// deplacementDash.Get("/province/:province", dashboard.AnalyseDeplacementParProvince)
-	// deplacementDash.Get("/tendances", dashboard.TendancesEvolution)
-	// deplacementDash.Get("/alertes-temps-reel", dashboard.AlertesTempsReel)
-	// deplacementDash.Get("/repartition-geo", dashboard.RepartitionGeographiqueDetaillee)
-	// deplacementDash.Get("/causes", dashboard.AnalyseCausesDetaillees)
-
+	 
 	// Dashboard Overview - APIs spécifiques pour le composant Angular overview
 	overviewDash := dash.Group("/overview")
 	overviewDash.Get("/indicateurs", overview.GetIndicateursGeneraux)
